@@ -1,0 +1,20 @@
+{
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "javascript.preferences.quoteStyle": "single",
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "files.exclude": {
+    "**/node_modules": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.git": true
+  },
+  "azureFunctions.deploySubpath": "api",
+  "azureFunctions.projectRuntime": "~4",
+  "azureFunctions.projectLanguage": "JavaScript"
+}

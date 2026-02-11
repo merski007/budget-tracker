@@ -1,0 +1,32 @@
+## .NET Build outputs
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+
+## Visual Studio
+.vs/
+*.vsidx
+*.vssscc
+*.sln.docstates
+
+## Environment files - CRITICAL: Never commit files with real secrets
+appsettings.Local.json
+appsettings.Production.json
+appsettings.*.Local.json
+*.env
+.env
+.env.local
+.env.production
+
+# Keep these files with placeholder values
+!appsettings.json
+!appsettings.Development.json
+
+## Logs
+logs/
+*.log

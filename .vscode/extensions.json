@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "ms-azuretools.vscode-azurefunctions",
+    "ms-azuretools.vscode-azurestaticwebapps",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "ms-vscode.azure-account",
+    "github.vscode-pull-request-github",
+    "msjsdiag.vscode-react-native"
+  ]
+}

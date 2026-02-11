@@ -1,0 +1,37 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.git": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/build": true
+    },
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit"
+    },
+    "javascript.preferences.quoteStyle": "single",
+    "javascript.updateImportsOnFileMove.enabled": "always",
+    "azureFunctions.projectRuntime": "~4",
+    "azureFunctions.projectLanguage": "JavaScript",
+    "azureFunctions.deploySubpath": "api"
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-azuretools.vscode-azurefunctions",
+      "ms-azuretools.vscode-azurestaticwebapps",
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      "ms-vscode.azure-account",
+      "github.vscode-pull-request-github"
+    ]
+  }
+}
