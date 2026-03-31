@@ -73,6 +73,56 @@ export function saveMonthData(year, month, data) {
   localStorage.setItem(getStorageKey(year, month), JSON.stringify(data))
 }
 
+// ─── Savings ─────────────────────────────────────────────────────────────────
+
+const SAVINGS_KEY = 'budget-savings-balance'
+
+export function loadSavingsBalance() {
+  const v = localStorage.getItem(SAVINGS_KEY)
+  return v !== null ? parseFloat(v) : 1140   // default to the known starting balance
+}
+
+export function saveSavingsBalance(amount) {
+  localStorage.setItem(SAVINGS_KEY, String(amount))
+}
+
+/**
+ * Build a month-over-month savings history for the last `numMonths` months
+ * (ending at the given year/month), using stored monthly data.
+ * Each entry shows the planned contribution and a running balance calculated
+ * forward from `startingBalance` at the oldest loaded month.
+ *
+ * @param {number} year
+ * @param {number} month  - 1-indexed, the "current" (newest) month to include
+ * @param {number} numMonths
+ * @param {number} startingBalance  - balance BEFORE the oldest month in the range
+ */
+export function buildSavingsHistory(year, month, numMonths, startingBalance) {
+  // Build an ordered list of {year, month} going back numMonths
+  const months = []
+  let y = year, m = month
+  for (let i = 0; i < numMonths; i++) {
+    months.unshift({ year: y, month: m })
+    m--
+    if (m === 0) { m = 12; y-- }
+  }
+
+  let running = startingBalance
+  return months.map(({ year: y, month: m }) => {
+    const data = loadMonthData(y, m)
+    const savingsLine = data.fixedExpenses.find(e => e.id === 'savings')
+    const contribution = savingsLine ? parseFloat(savingsLine.amount) || 0 : 0
+    running += contribution
+    return {
+      year: y,
+      month: m,
+      label: `${MONTH_NAMES[m - 1]} ${y}`,
+      contribution,
+      runningBalance: running,
+    }
+  })
+}
+
 export function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }

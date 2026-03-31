@@ -5,7 +5,11 @@ import IncomePanel from './components/IncomePanel'
 import FixedExpensesPanel from './components/FixedExpensesPanel'
 import CreditCardsPanel from './components/CreditCardsPanel'
 import DerivedCalcsPanel from './components/DerivedCalcsPanel'
-import { loadMonthData, saveMonthData, getMonthIncome, getDateStats, getDerivedCalcs } from './utils/budgetUtils'
+import SavingsPanel from './components/SavingsPanel'
+import {
+  loadMonthData, saveMonthData, getMonthIncome, getDateStats, getDerivedCalcs,
+  loadSavingsBalance, saveSavingsBalance, buildSavingsHistory,
+} from './utils/budgetUtils'
 import './App.css'
 
 function App() {
@@ -15,6 +19,7 @@ function App() {
   const [monthData, setMonthData] = useState(() =>
     loadMonthData(today.getFullYear(), today.getMonth() + 1)
   )
+  const [savingsBalance, setSavingsBalance] = useState(() => loadSavingsBalance())
 
   // Load saved data when month/year changes
   useEffect(() => {
@@ -25,6 +30,11 @@ function App() {
   useEffect(() => {
     saveMonthData(year, month, monthData)
   }, [year, month, monthData])
+
+  function updateSavingsBalance(val) {
+    setSavingsBalance(val)
+    saveSavingsBalance(val)
+  }
 
   function prevMonth() {
     if (month === 1) { setYear(y => y - 1); setMonth(12) }
@@ -69,6 +79,12 @@ function App() {
   const dateStats    = getDateStats(year, month)
   const derivedCalcs = getDerivedCalcs(remaining, dateStats)
 
+  const thisMonthContribution = parseFloat(
+    monthData.fixedExpenses.find(e => e.id === 'savings')?.amount
+  ) || 0
+  // History: 11 past months + current = 12 rows; balance shown is BEFORE current month
+  const savingsHistory = buildSavingsHistory(year, month, 12, savingsBalance - thisMonthContribution)
+
   return (
     <div className="app">
       <header className="app-header">
@@ -96,6 +112,12 @@ function App() {
           total={ccTotal}
         />
         <DerivedCalcsPanel calcs={derivedCalcs} isCurrentMonth={dateStats.isCurrentMonth} />
+        <SavingsPanel
+          savingsBalance={savingsBalance}
+          onBalanceChange={updateSavingsBalance}
+          thisMonthContribution={thisMonthContribution}
+          history={savingsHistory}
+        />
       </div>
     </div>
   )

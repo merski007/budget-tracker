@@ -326,3 +326,126 @@
   background: var(--color-border);
   margin: 0.25rem 1.25rem;
 }
+
+/* ─── Savings Panel ─────────────────────────────────────── */
+.savings-panel { width: 100%; }
+
+.savings-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.savings-stat {
+  padding: 1rem 1.25rem;
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.savings-stat:last-child { border-right: none; }
+
+.savings-stat.highlight { background: #f0f4ff; }
+
+.savings-stat-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+}
+
+.savings-balance-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.savings-prefix {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-income);
+}
+
+.savings-balance-input {
+  width: 100%;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-income);
+  border: none;
+  border-bottom: 2px solid var(--color-border);
+  background: transparent;
+  padding: 0.1rem 0;
+}
+
+.savings-balance-input:focus {
+  outline: none;
+  border-bottom-color: var(--color-primary);
+}
+
+.savings-big-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-income);
+}
+
+.savings-big-value.projected { color: var(--color-primary); }
+
+.savings-hint {
+  font-size: 0.72rem;
+  color: var(--color-muted);
+}
+
+/* History table */
+.savings-history {
+  padding: 0.25rem 0;
+}
+
+.savings-history-header {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 1rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.savings-history-header span:not(:first-child) { text-align: right; }
+
+.savings-history-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 1rem;
+  padding: 0.55rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.875rem;
+  align-items: center;
+}
+
+.savings-history-row:last-child { border-bottom: none; }
+
+.amt-contrib {
+  text-align: right;
+  min-width: 7rem;
+  color: var(--color-income);
+  font-weight: 600;
+}
+
+.amt-balance {
+  text-align: right;
+  min-width: 8rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+@media (max-width: 640px) {
+  .savings-top { grid-template-columns: 1fr; }
+  .savings-stat { border-right: none; border-bottom: 1px solid var(--color-border); }
+}
