@@ -54,6 +54,7 @@ function App() {
   // ── Load month when year/month changes ──────────────────────────────────────
   useEffect(() => {
     let cancelled = false
+    setMonthData(null)   // clear stale data so the save effect doesn't write it to the new month
     setIsLoading(true)
 
     async function load() {
