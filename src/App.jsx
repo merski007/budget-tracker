@@ -148,6 +148,7 @@ function App() {
   function handleReset() {
     setMonthData(d => ({
       ...d,
+      checkingBalance:   '',
       // Restore expense list from master — amounts reset to master template values
       fixedExpenses: masterExpenses.map(e => ({ id: e.id, name: e.name, amount: e.amount })),
       // Clear all tracking state
