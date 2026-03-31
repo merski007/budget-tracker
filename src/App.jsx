@@ -148,11 +148,8 @@ function App() {
   function handleReset() {
     setMonthData(d => ({
       ...d,
-      // Restore expense list from master (keeps any month-specific amounts if id matches)
-      fixedExpenses: masterExpenses.map(e => {
-        const existing = d.fixedExpenses.find(x => x.id === e.id)
-        return { id: e.id, name: e.name, amount: existing?.amount ?? e.amount }
-      }),
+      // Restore expense list from master — amounts reset to master template values
+      fixedExpenses: masterExpenses.map(e => ({ id: e.id, name: e.name, amount: e.amount })),
       // Clear all tracking state
       paidExpenseIds:    [],
       paychecksReceived: 0,
