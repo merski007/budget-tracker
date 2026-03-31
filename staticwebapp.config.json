@@ -1,4 +1,14 @@
 {
+  "auth": {
+    "identityProviders": {
+      "google": {
+        "registration": {
+          "clientIdSettingName": "GOOGLE_PROVIDER_AUTHENTICATION_ID",
+          "clientSecretSettingName": "GOOGLE_PROVIDER_AUTHENTICATION_SECRET"
+        }
+      }
+    }
+  },
   "routes": [
     {
       "route": "/.auth/*",
