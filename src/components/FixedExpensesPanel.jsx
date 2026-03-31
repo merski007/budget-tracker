@@ -1,41 +1,21 @@
-import { useState } from 'react'
 import { formatCurrency } from '../utils/budgetUtils'
 
+/**
+ * Dashboard view of fixed expenses.
+ * - Amounts are editable per-month (may differ from the master template).
+ * - Each row has a paid/unpaid checkbox.
+ * - Names are read-only here; edit them in Settings.
+ */
 function FixedExpensesPanel({
   expenses,
   paidExpenseIds,
   onAmountChange,
-  onRename,
-  onAdd,
-  onDelete,
   onTogglePaid,
   total,
   unpaidTotal,
 }) {
-  const [editingId, setEditingId] = useState(null)
-  const [editName,  setEditName]  = useState('')
-  const [addName,   setAddName]   = useState('')
-  const [addAmount, setAddAmount] = useState('')
-
   const paidCount  = paidExpenseIds.length
   const totalCount = expenses.length
-
-  function startEdit(expense) {
-    setEditingId(expense.id)
-    setEditName(expense.name)
-  }
-
-  function commitEdit(id) {
-    if (editName.trim()) onRename(id, editName.trim())
-    setEditingId(null)
-  }
-
-  function handleAdd() {
-    if (!addName.trim()) return
-    onAdd(addName.trim(), addAmount)
-    setAddName('')
-    setAddAmount('')
-  }
 
   return (
     <section className="panel expenses-panel">
@@ -48,9 +28,7 @@ function FixedExpensesPanel({
 
       <div className="panel-rows scrollable">
         {expenses.map(expense => {
-          const isPaid    = paidExpenseIds.includes(expense.id)
-          const isEditing = editingId === expense.id
-
+          const isPaid = paidExpenseIds.includes(expense.id)
           return (
             <div
               className={`panel-row expense-row${isPaid ? ' expense-paid' : ''}`}
@@ -63,29 +41,12 @@ function FixedExpensesPanel({
                 onChange={() => onTogglePaid(expense.id)}
                 title={isPaid ? 'Mark unpaid' : 'Mark as paid'}
               />
-
-              {isEditing ? (
-                <input
-                  className="expense-edit-input"
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  onBlur={() => commitEdit(expense.id)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter')  commitEdit(expense.id)
-                    if (e.key === 'Escape') setEditingId(null)
-                  }}
-                  autoFocus
-                />
-              ) : (
-                <label
-                  className="row-label expense-name"
-                  htmlFor={`exp-${expense.id}`}
-                  title="Click ✎ to rename"
-                >
-                  {expense.name}
-                </label>
-              )}
-
+              <label
+                className="row-label expense-name"
+                htmlFor={`exp-${expense.id}`}
+              >
+                {expense.name}
+              </label>
               <input
                 id={`exp-${expense.id}`}
                 type="number"
@@ -95,52 +56,9 @@ function FixedExpensesPanel({
                 min="0"
                 step="0.01"
               />
-
-              <div className="expense-actions">
-                <button
-                  className="action-btn edit-btn"
-                  onClick={() => isEditing ? commitEdit(expense.id) : startEdit(expense)}
-                  title={isEditing ? 'Save name' : 'Rename'}
-                >✎</button>
-                <button
-                  className="action-btn delete-btn"
-                  onClick={() => onDelete(expense.id)}
-                  title="Delete expense"
-                >✕</button>
-              </div>
             </div>
           )
         })}
-
-        {/* ── Add new expense row ── */}
-        <div className="panel-row add-expense-row">
-          <span className="add-expense-icon">＋</span>
-          <input
-            type="text"
-            className="expense-edit-input"
-            placeholder="New expense name…"
-            value={addName}
-            onChange={e => setAddName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          />
-          <input
-            type="number"
-            className="amount-input"
-            placeholder="0.00"
-            value={addAmount}
-            onChange={e => setAddAmount(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            min="0"
-            step="0.01"
-          />
-          <button
-            className="add-expense-btn"
-            onClick={handleAdd}
-            disabled={!addName.trim()}
-          >
-            Add
-          </button>
-        </div>
       </div>
 
       <div className="panel-total">
@@ -159,4 +77,5 @@ function FixedExpensesPanel({
 }
 
 export default FixedExpensesPanel
+
 

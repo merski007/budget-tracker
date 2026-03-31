@@ -13,6 +13,39 @@
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* ─── Header Tab Nav ────────────────────────────────────── */
+.app-tabs {
+  display: flex;
+  gap: 0.25rem;
+  background: rgba(0,0,0,0.15);
+  border-radius: calc(var(--radius) + 2px);
+  padding: 0.2rem;
+}
+
+.app-tab {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.75);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.app-tab:hover {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+
+.app-tab.active {
+  background: #fff;
+  color: var(--color-primary);
 }
 
 .app-header h1 {
@@ -94,6 +127,26 @@
 
 .month-btn:hover {
   background: var(--color-bg);
+}
+
+.month-reset-btn {
+  margin-left: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.month-reset-btn:hover {
+  background: #fff4f4;
+  border-color: var(--color-expense);
+  color: var(--color-expense);
 }
 
 /* ─── Summary Bar ───────────────────────────────────────── */
@@ -665,6 +718,101 @@
 .still-owed-value {
   color: var(--color-expense);
   font-weight: 700;
+}
+
+/* ─── Settings Page ─────────────────────────────────────── */
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.settings-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.settings-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.settings-hint {
+  font-size: 0.82rem;
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+
+.settings-panel {
+  width: 100%;
+}
+
+.settings-panel-header {
+  display: grid;
+  grid-template-columns: 1fr 140px 80px;
+  gap: 1rem;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-rows {
+  padding: 0.25rem 0;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: 1fr 140px 80px;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.45rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-row:last-child {
+  border-bottom: none;
+}
+
+.settings-add-row {
+  background: var(--color-bg);
+  border-top: 1px dashed var(--color-border) !important;
+}
+
+.settings-name {
+  font-size: 0.875rem;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-amount {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-expense);
+  text-align: right;
+}
+
+.settings-name-input {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  background: #fff;
+  color: var(--color-text);
+  min-width: 0;
+}
+
+.settings-name-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(74,108,247,0.15);
 }
 
 /* ─── Paycheck / Income Rows ────────────────────────────── */

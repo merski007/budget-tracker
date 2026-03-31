@@ -122,6 +122,24 @@ export function saveMonthData(year, month, data) {
   localStorage.setItem(getStorageKey(year, month), JSON.stringify(data))
 }
 
+// ─── Master Fixed Expenses (global template) ──────────────────────────────────
+
+const MASTER_EXPENSES_KEY = 'budget-master-expenses'
+
+/**
+ * Load the master fixed-expense template from localStorage.
+ * Falls back to DEFAULT_FIXED_EXPENSES when nothing is stored yet.
+ */
+export function loadMasterExpenses() {
+  const stored = localStorage.getItem(MASTER_EXPENSES_KEY)
+  if (stored) return JSON.parse(stored)
+  return DEFAULT_FIXED_EXPENSES.map(e => ({ ...e }))
+}
+
+export function saveMasterExpenses(expenses) {
+  localStorage.setItem(MASTER_EXPENSES_KEY, JSON.stringify(expenses))
+}
+
 // ─── Savings ─────────────────────────────────────────────────────────────────
 
 const SAVINGS_KEY = 'budget-savings-balance'
