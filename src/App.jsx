@@ -4,7 +4,8 @@ import SummaryBar from './components/SummaryBar'
 import IncomePanel from './components/IncomePanel'
 import FixedExpensesPanel from './components/FixedExpensesPanel'
 import CreditCardsPanel from './components/CreditCardsPanel'
-import { loadMonthData, saveMonthData, getMonthIncome } from './utils/budgetUtils'
+import DerivedCalcsPanel from './components/DerivedCalcsPanel'
+import { loadMonthData, saveMonthData, getMonthIncome, getDateStats, getDerivedCalcs } from './utils/budgetUtils'
 import './App.css'
 
 function App() {
@@ -65,6 +66,9 @@ function App() {
   const totalOut    = fixedTotal + ccTotal
   const remaining   = totalIn - totalOut
 
+  const dateStats    = getDateStats(year, month)
+  const derivedCalcs = getDerivedCalcs(remaining, dateStats)
+
   return (
     <div className="app">
       <header className="app-header">
@@ -91,6 +95,7 @@ function App() {
           onCardChange={updateCreditCard}
           total={ccTotal}
         />
+        <DerivedCalcsPanel calcs={derivedCalcs} isCurrentMonth={dateStats.isCurrentMonth} />
       </div>
     </div>
   )

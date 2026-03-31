@@ -76,3 +76,56 @@ export function saveMonthData(year, month, data) {
 export function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }
+
+/**
+ * Returns derived time-based stats relative to today.
+ * Only meaningful when viewing the current month.
+ * @param {number} year
+ * @param {number} month - 1-indexed
+ * @returns {{
+ *   isCurrentMonth: boolean,
+ *   daysInMonth: number,
+ *   daysRemainingInMonth: number,   // today through last day, inclusive
+ *   daysRemainingInWeek: number,    // today through Saturday, inclusive (Sun–Sat week)
+ * }}
+ */
+export function getDateStats(year, month) {
+  const today = new Date()
+  const isCurrentMonth =
+    today.getFullYear() === year && today.getMonth() + 1 === month
+
+  const daysInMonth = new Date(year, month, 0).getDate()
+
+  if (!isCurrentMonth) {
+    return { isCurrentMonth, daysInMonth, daysRemainingInMonth: daysInMonth, daysRemainingInWeek: 7 }
+  }
+
+  const todayDate = today.getDate()
+  const daysRemainingInMonth = daysInMonth - todayDate + 1          // inclusive of today
+
+  const dayOfWeek = today.getDay()                                  // 0=Sun … 6=Sat
+  const daysRemainingInWeek = 7 - dayOfWeek                        // today through Sat inclusive
+
+  return { isCurrentMonth, daysInMonth, daysRemainingInMonth, daysRemainingInWeek }
+}
+
+/**
+ * Compute the derived budget amounts shown in Phase 2.
+ * @param {number} remaining  - net remaining for the month
+ * @param {ReturnType<typeof getDateStats>} dateStats
+ */
+export function getDerivedCalcs(remaining, dateStats) {
+  const { daysRemainingInMonth, daysRemainingInWeek } = dateStats
+
+  const dailyAllowance       = daysRemainingInMonth > 0 ? remaining / daysRemainingInMonth : 0
+  const weeklyThisWeek       = dailyAllowance * daysRemainingInWeek   // $ available for the rest of this week
+  const weeklyStandardRate   = dailyAllowance * 7                     // $ per full 7-day week at this rate
+
+  return {
+    dailyAllowance,
+    weeklyThisWeek,
+    weeklyStandardRate,
+    daysRemainingInMonth,
+    daysRemainingInWeek,
+  }
+}
