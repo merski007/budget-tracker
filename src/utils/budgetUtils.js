@@ -29,6 +29,43 @@ export const DEFAULT_CREDIT_CARDS = [
 ]
 
 /**
+ * Returns an array of Date objects for every Thursday in the given month.
+ * @param {number} year
+ * @param {number} month - 1-indexed
+ * @returns {Date[]}
+ */
+export function getThursdaysInMonth(year, month) {
+  const thursdays = []
+  const daysInMonth = new Date(year, month, 0).getDate()
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month - 1, d)
+    if (date.getDay() === 4) thursdays.push(date)
+  }
+  return thursdays
+}
+
+/**
+ * Compute the effective (still-incoming) income for the totalIn formula.
+ *
+ * Because the checking balance already includes received paychecks, we must
+ * NOT add them again.  Only future / unreceived paychecks & Laura are additive.
+ *
+ * @param {ReturnType<typeof getMonthIncome>} income
+ * @param {number}  paychecksReceived  - how many $1,300 paychecks are already in the bank
+ * @param {boolean} lauraReceived      - whether Laura's paycheck is already in the bank
+ */
+export function getEffectiveIncome(income, paychecksReceived, lauraReceived) {
+  const unreceivedCount    = Math.max(0, income.thursdays - paychecksReceived)
+  const effectivePaychecks = unreceivedCount * 1300
+  const effectiveLaura     = lauraReceived ? 0 : income.laura
+  return {
+    effectivePaychecks,
+    effectiveLaura,
+    total: effectivePaychecks + effectiveLaura,
+  }
+}
+
+/**
  * Count how many Thursdays are in a given month.
  * @param {number} year
  * @param {number} month - 1-indexed
@@ -61,11 +98,23 @@ export function getStorageKey(year, month) {
 export function loadMonthData(year, month) {
   const key = getStorageKey(year, month)
   const stored = localStorage.getItem(key)
-  if (stored) return JSON.parse(stored)
+  if (stored) {
+    const parsed = JSON.parse(stored)
+    // Backfill new fields for documents saved before Phase 3
+    return {
+      paidExpenseIds:    [],
+      paychecksReceived: 0,
+      lauraReceived:     false,
+      ...parsed,
+    }
+  }
   return {
-    checkingBalance: '',
-    fixedExpenses: DEFAULT_FIXED_EXPENSES.map(e => ({ ...e })),
-    creditCards: DEFAULT_CREDIT_CARDS.map(c => ({ ...c })),
+    checkingBalance:   '',
+    fixedExpenses:     DEFAULT_FIXED_EXPENSES.map(e => ({ ...e })),
+    creditCards:       DEFAULT_CREDIT_CARDS.map(c => ({ ...c })),
+    paidExpenseIds:    [],
+    paychecksReceived: 0,
+    lauraReceived:     false,
   }
 }
 

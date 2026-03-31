@@ -127,6 +127,19 @@
   font-weight: 700;
 }
 
+.summary-detail {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  margin-top: 0.1rem;
+}
+
+.summary-detail-live {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .summary-item.in  .summary-value { color: var(--color-income); }
 .summary-item.out .summary-value { color: var(--color-expense); }
 .summary-item.remaining .summary-value { color: var(--color-primary); }
@@ -488,3 +501,206 @@
   .savings-top { grid-template-columns: 1fr; }
   .savings-stat { border-right: none; border-bottom: 1px solid var(--color-border); }
 }
+
+/* ─── Panel Title Row (title + progress badge) ──────────── */
+.panel-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.panel-title-row .panel-title {
+  padding: 0;
+  border-bottom: none;
+  background: transparent;
+}
+
+/* ─── Progress Badge ────────────────────────────────────── */
+.progress-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  background: #ebf4ff;
+  border: 1px solid rgba(74,108,247,0.25);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  white-space: nowrap;
+}
+
+/* ─── Fixed Expense row with checkbox + actions ─────────── */
+.expense-row {
+  display: grid;
+  grid-template-columns: 20px 1fr 110px 56px;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.expense-checkbox {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.expense-name {
+  flex: unset;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Paid row: dim text + strikethrough expense name */
+.expense-paid .expense-name {
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+
+.expense-paid .amount-input {
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+
+/* Inline name edit input (reused in add row too) */
+.expense-edit-input {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  background: #fff;
+  color: var(--color-text);
+  min-width: 0;
+}
+
+.expense-edit-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(74,108,247,0.15);
+}
+
+/* ✎ and ✕ icon buttons */
+.expense-actions {
+  display: flex;
+  gap: 0.2rem;
+  justify-content: flex-end;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s;
+}
+
+.edit-btn {
+  color: var(--color-muted);
+}
+
+.edit-btn:hover {
+  background: #ebf4ff;
+  color: var(--color-primary);
+}
+
+.delete-btn {
+  color: var(--color-muted);
+}
+
+.delete-btn:hover {
+  background: #fff0f0;
+  color: var(--color-expense);
+}
+
+/* ── Add expense row ─────────────────────────────────────── */
+.add-expense-row {
+  display: grid;
+  grid-template-columns: 20px 1fr 110px 56px;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-bg);
+  border-top: 1px dashed var(--color-border) !important;
+}
+
+.add-expense-icon {
+  font-size: 0.95rem;
+  color: var(--color-primary);
+  text-align: center;
+  line-height: 1;
+}
+
+.add-expense-btn {
+  padding: 0.3rem 0.4rem;
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.add-expense-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.add-expense-btn:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+/* ── Secondary total (Still Owed) ────────────────────────── */
+.secondary-total {
+  border-top: 1px solid var(--color-border);
+  background: #fff8f8;
+}
+
+.still-owed-value {
+  color: var(--color-expense);
+  font-weight: 700;
+}
+
+/* ─── Paycheck / Income Rows ────────────────────────────── */
+.paycheck-row {
+  gap: 0.5rem;
+}
+
+.paycheck-label {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.paycheck-checkbox {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+/* Received paycheck: dim to indicate "already in bank" */
+.paycheck-received {
+  background: #f6fdf7;
+}
+
+.paycheck-received .row-label,
+.paycheck-received .row-sub {
+  color: var(--color-muted);
+}
+
+/* Pending (not yet received) paycheck amount */
+.value-pending {
+  color: var(--color-muted) !important;
+  font-style: italic;
+}
+
