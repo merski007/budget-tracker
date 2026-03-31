@@ -35,8 +35,8 @@ app.http('getBudgets', {
 
       return { jsonBody: userIndex.budgets }
     } catch (err) {
-      context.error('getBudgets error:', err.message)
-      return { status: 500, jsonBody: { error: 'Failed to list budgets' } }
+      context.error('getBudgets error:', err.message, err.stack)
+      return { status: 500, jsonBody: { error: err.message || 'Failed to list budgets' } }
     }
   },
 })
@@ -79,8 +79,8 @@ app.http('createBudget', {
 
       return { status: 201, jsonBody: { budgetId, name, role: 'owner' } }
     } catch (err) {
-      context.error('createBudget error:', err.message)
-      return { status: 500, jsonBody: { error: 'Failed to create budget' } }
+      context.error('createBudget error:', err.message, err.stack)
+      return { status: 500, jsonBody: { error: err.message || 'Failed to create budget' } }
     }
   },
 })

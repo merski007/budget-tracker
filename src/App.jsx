@@ -272,7 +272,7 @@ function App() {
   if (authLoading || page === 'loading') {
     return (
       <div className="auth-loading">
-        <span>Loadingâ€¦</span>
+        <span>Loading…</span>
       </div>
     )
   }
@@ -343,7 +343,7 @@ function App() {
                 onClick={() => setShowSwitcher(s => !s)}
               >
                 {activeBudget.name}
-                <span className="switcher-caret">{showSwitcher ? 'â–²' : 'â–¼'}</span>
+                <span className="switcher-caret">{showSwitcher ? '▲' : '▼'}</span>
               </button>
               {showSwitcher && (
                 <div className="budget-switcher-menu">
@@ -358,7 +358,7 @@ function App() {
                   ))}
                   <div className="switcher-divider" />
                   <button className="switcher-item switcher-manage" onClick={() => { setShowSwitcher(false); setPage('budgetList') }}>
-                    Manage Budgetsâ€¦
+                    Manage Budgets…
                   </button>
                 </div>
               )}
@@ -371,7 +371,7 @@ function App() {
             Dashboard
           </button>
           <button className={`app-tab${page === 'settings' ? ' active' : ''}`} onClick={() => setPage('settings')}>
-            âš™ Settings
+            ⚙ Settings
           </button>
         </div>
 

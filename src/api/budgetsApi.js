@@ -3,7 +3,10 @@ const BASE = '/api'
 /** List all budgets the current user can access. */
 export async function fetchBudgets() {
   const res = await fetch(`${BASE}/budgets`)
-  if (!res.ok) throw new Error(`Failed to list budgets: ${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body?.error || `Failed to list budgets: ${res.status}`)
+  }
   return res.json()   // [{ budgetId, name, role }]
 }
 
@@ -14,7 +17,10 @@ export async function createBudget(name) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   })
-  if (!res.ok) throw new Error(`Failed to create budget: ${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body?.error || `Failed to create budget: ${res.status}`)
+  }
   return res.json()
 }
 
