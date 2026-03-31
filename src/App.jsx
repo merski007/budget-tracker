@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from './hooks/useAuth'
 import MonthNav from './components/MonthNav'
 import SummaryBar from './components/SummaryBar'
 import IncomePanel from './components/IncomePanel'
@@ -13,6 +14,7 @@ import {
 import './App.css'
 
 function App() {
+  const { user, loading: authLoading } = useAuth()
   const today = new Date()
   const [year, setYear]       = useState(today.getFullYear())
   const [month, setMonth]     = useState(today.getMonth() + 1) // 1-indexed
@@ -85,10 +87,24 @@ function App() {
   // History: 11 past months + current = 12 rows; balance shown is BEFORE current month
   const savingsHistory = buildSavingsHistory(year, month, 12, savingsBalance - thisMonthContribution)
 
+  if (authLoading) {
+    return (
+      <div className="auth-loading">
+        <span>Loading...</span>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
       <header className="app-header">
         <h1>Budget Tracker</h1>
+        {user && (
+          <div className="header-user">
+            <span className="header-email">{user.userDetails}</span>
+            <a className="signout-btn" href="/.auth/logout?post_logout_redirect_uri=/">Sign Out</a>
+          </div>
+        )}
       </header>
       <div className="app-body">
         <MonthNav year={year} month={month} onPrev={prevMonth} onNext={nextMonth} />
