@@ -91,12 +91,12 @@ export function getMonthIncome(year, month) {
   return { thursdays, paychecks, laura, total: paychecks + laura }
 }
 
-export function getStorageKey(year, month) {
-  return `budget-${year}-${String(month).padStart(2, '0')}`
+export function getStorageKey(budgetId, year, month) {
+  return `budget-${budgetId}-${year}-${String(month).padStart(2, '0')}`
 }
 
-export function loadMonthData(year, month) {
-  const key = getStorageKey(year, month)
+export function loadMonthData(budgetId, year, month) {
+  const key = getStorageKey(budgetId, year, month)
   const stored = localStorage.getItem(key)
   if (stored) {
     const parsed = JSON.parse(stored)
@@ -118,39 +118,35 @@ export function loadMonthData(year, month) {
   }
 }
 
-export function saveMonthData(year, month, data) {
-  localStorage.setItem(getStorageKey(year, month), JSON.stringify(data))
+export function saveMonthData(budgetId, year, month, data) {
+  localStorage.setItem(getStorageKey(budgetId, year, month), JSON.stringify(data))
 }
 
 // ─── Master Fixed Expenses (global template) ──────────────────────────────────
 
-const MASTER_EXPENSES_KEY = 'budget-master-expenses'
-
 /**
- * Load the master fixed-expense template from localStorage.
+ * Load the master fixed-expense template from localStorage for a specific budget.
  * Falls back to DEFAULT_FIXED_EXPENSES when nothing is stored yet.
  */
-export function loadMasterExpenses() {
-  const stored = localStorage.getItem(MASTER_EXPENSES_KEY)
+export function loadMasterExpenses(budgetId) {
+  const stored = localStorage.getItem(`budget-${budgetId}-master-expenses`)
   if (stored) return JSON.parse(stored)
   return DEFAULT_FIXED_EXPENSES.map(e => ({ ...e }))
 }
 
-export function saveMasterExpenses(expenses) {
-  localStorage.setItem(MASTER_EXPENSES_KEY, JSON.stringify(expenses))
+export function saveMasterExpenses(budgetId, expenses) {
+  localStorage.setItem(`budget-${budgetId}-master-expenses`, JSON.stringify(expenses))
 }
 
 // ─── Savings ─────────────────────────────────────────────────────────────────
 
-const SAVINGS_KEY = 'budget-savings-balance'
-
-export function loadSavingsBalance() {
-  const v = localStorage.getItem(SAVINGS_KEY)
-  return v !== null ? parseFloat(v) : 1140   // default to the known starting balance
+export function loadSavingsBalance(budgetId) {
+  const v = localStorage.getItem(`budget-${budgetId}-savings-balance`)
+  return v !== null ? parseFloat(v) : 1140
 }
 
-export function saveSavingsBalance(amount) {
-  localStorage.setItem(SAVINGS_KEY, String(amount))
+export function saveSavingsBalance(budgetId, amount) {
+  localStorage.setItem(`budget-${budgetId}-savings-balance`, String(amount))
 }
 
 /**
@@ -164,7 +160,7 @@ export function saveSavingsBalance(amount) {
  * @param {number} numMonths
  * @param {number} startingBalance  - balance BEFORE the oldest month in the range
  */
-export function buildSavingsHistory(year, month, numMonths, startingBalance) {
+export function buildSavingsHistory(budgetId, year, month, numMonths, startingBalance) {
   // Build an ordered list of {year, month} going back numMonths
   const months = []
   let y = year, m = month
@@ -176,7 +172,7 @@ export function buildSavingsHistory(year, month, numMonths, startingBalance) {
 
   let running = startingBalance
   return months.map(({ year: y, month: m }) => {
-    const data = loadMonthData(y, m)
+    const data = loadMonthData(budgetId, y, m)
     const savingsLine = data.fixedExpenses.find(e => e.id === 'savings')
     const contribution = savingsLine ? parseFloat(savingsLine.amount) || 0 : 0
     running += contribution

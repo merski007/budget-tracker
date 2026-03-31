@@ -1,57 +1,59 @@
 const { app } = require('@azure/functions')
-const { getBudgetContainer } = require('../cosmos')
+const { getCallerIdentity, assertBudgetAccess } = require('../auth')
+const { getBudgetDataContainer } = require('../cosmos')
 
-/**
- * Single settings document per user, stored in the budget-months container.
- * id:           settings-{userId}
- * partitionKey: userId
- */
-function getContext(request) {
-  const userId = request.headers.get('x-ms-client-principal-id') || 'anonymous'
-  const id     = `settings-${userId}`
-  return { userId, id }
-}
+function stripMeta({ _rid, _self, _etag, _attachments, _ts, ...rest }) { return rest }
 
-// GET /api/settings
-app.http('getSettings', {
+// GET /api/budgets/{budgetId}/settings
+app.http('getBudgetSettings', {
   methods: ['GET'],
-  route: 'settings',
+  route: 'budgets/{budgetId}/settings',
   authLevel: 'anonymous',
   handler: async (request, context) => {
     try {
-      const { userId, id } = getContext(request)
-      const { container }  = await getBudgetContainer()
+      const { userId }   = getCallerIdentity(request)
+      const { budgetId } = request.params
+      await assertBudgetAccess(userId, budgetId, 'viewer')
+
+      const id        = `settings-${budgetId}`
+      const container = await getBudgetDataContainer()
       try {
-        const { resource } = await container.item(id, userId).read()
+        const { resource } = await container.item(id, budgetId).read()
         return { jsonBody: resource }
       } catch (e) {
         if (e.code === 404) return { status: 404, jsonBody: { error: 'Not found' } }
         throw e
       }
     } catch (err) {
-      context.error('getSettings error:', err.message)
+      if (err.statusCode) return { status: err.statusCode, jsonBody: { error: err.message } }
+      context.error('getBudgetSettings error:', err.message)
       return { status: 500, jsonBody: { error: 'Failed to fetch settings' } }
     }
   },
 })
 
-// PUT /api/settings
-app.http('putSettings', {
+// PUT /api/budgets/{budgetId}/settings
+app.http('putBudgetSettings', {
   methods: ['PUT'],
-  route: 'settings',
+  route: 'budgets/{budgetId}/settings',
   authLevel: 'anonymous',
   handler: async (request, context) => {
     try {
-      const { userId, id } = getContext(request)
+      const { userId }   = getCallerIdentity(request)
+      const { budgetId } = request.params
+      await assertBudgetAccess(userId, budgetId, 'editor')
+
       const body = await request.json()
       const { _rid, _self, _etag, _attachments, _ts, ...rest } = body
-      const doc = { ...rest, id, userId }
+      const id  = `settings-${budgetId}`
+      const doc = { ...rest, id, budgetId }
 
-      const { container } = await getBudgetContainer()
-      const { resource }  = await container.items.upsert(doc)
-      return { jsonBody: resource }
+      const container = await getBudgetDataContainer()
+      const { resource } = await container.items.upsert(doc)
+      return { jsonBody: stripMeta(resource) }
     } catch (err) {
-      context.error('putSettings error:', err.message)
+      if (err.statusCode) return { status: err.statusCode, jsonBody: { error: err.message } }
+      context.error('putBudgetSettings error:', err.message)
       return { status: 500, jsonBody: { error: 'Failed to save settings' } }
     }
   },

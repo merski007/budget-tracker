@@ -1,70 +1,91 @@
 const { CosmosClient } = require('@azure/cosmos')
 
-let _client        = null
-let _container     = null
-let _budgetContainer = null
+let _client             = null
+let _container          = null   // legacy "entries"
+let _budgetContainer    = null   // legacy "budget-months"
+let _userIndexContainer = null   // new "user-index"
+let _budgetDataContainer = null  // new "budget-data"
 
-/**
- * Returns a cached Cosmos DB client and the `entries` container.
- *
- * Required environment variables (set in Azure Static Web Apps app settings):
- *   COSMOS_ENDPOINT  — e.g. https://your-account.documents.azure.com:443/
- *   COSMOS_KEY       — primary or secondary key
- *   COSMOS_DATABASE  — database name  (default: budget-tracker)
- *   COSMOS_CONTAINER — container name (default: entries)
- */
-async function getCosmosClient() {
-  if (_container) return { client: _client, container: _container }
-
-  const endpoint    = process.env.COSMOS_ENDPOINT
-  const key         = process.env.COSMOS_KEY
-  const databaseId  = process.env.COSMOS_DATABASE  || 'budget-tracker'
-  const containerId = process.env.COSMOS_CONTAINER || 'entries'
-
+function getEnv() {
+  const endpoint   = process.env.COSMOS_ENDPOINT
+  const key        = process.env.COSMOS_KEY
+  const databaseId = process.env.COSMOS_DATABASE || 'budget-tracker'
   if (!endpoint || !key) {
     throw new Error('COSMOS_ENDPOINT and COSMOS_KEY environment variables are required')
   }
+  if (!_client) _client = new CosmosClient({ endpoint, key })
+  return { databaseId }
+}
 
-  _client = new CosmosClient({ endpoint, key })
+async function getDatabase() {
+  const { databaseId } = getEnv()
   const { database } = await _client.databases.createIfNotExists({ id: databaseId })
+  return database
+}
+
+// ── Legacy containers (kept for migration) ────────────────────────────────────
+
+async function getCosmosClient() {
+  if (_container) return { client: _client, container: _container }
+  getEnv()
+  const database = await getDatabase()
   const { container } = await database.containers.createIfNotExists({
-    id: containerId,
+    id: process.env.COSMOS_CONTAINER || 'entries',
     partitionKey: { paths: ['/id'] },
   })
-
   _container = container
   return { client: _client, container: _container }
 }
 
-/**
- * Returns a cached Cosmos DB client and the `budget-months` container.
- * Partition key is `/userId` so each user's months live in the same partition.
- *
- *   COSMOS_BUDGET_CONTAINER — container name (default: budget-months)
- */
 async function getBudgetContainer() {
   if (_budgetContainer) return { client: _client, container: _budgetContainer }
-
-  const endpoint    = process.env.COSMOS_ENDPOINT
-  const key         = process.env.COSMOS_KEY
-  const databaseId  = process.env.COSMOS_DATABASE        || 'budget-tracker'
-  const containerId = process.env.COSMOS_BUDGET_CONTAINER || 'budget-months'
-
-  if (!endpoint || !key) {
-    throw new Error('COSMOS_ENDPOINT and COSMOS_KEY environment variables are required')
-  }
-
-  if (!_client) {
-    _client = new CosmosClient({ endpoint, key })
-  }
-  const { database } = await _client.databases.createIfNotExists({ id: databaseId })
+  getEnv()
+  const database = await getDatabase()
   const { container } = await database.containers.createIfNotExists({
-    id: containerId,
+    id: process.env.COSMOS_BUDGET_CONTAINER || 'budget-months',
     partitionKey: { paths: ['/userId'] },
   })
-
   _budgetContainer = container
   return { client: _client, container: _budgetContainer }
 }
 
-module.exports = { getCosmosClient, getBudgetContainer }
+// ── New multi-user containers ─────────────────────────────────────────────────
+
+/**
+ * user-index — one doc per user listing which budgets they belong to.
+ * Partition key: /userId
+ */
+async function getUserIndexContainer() {
+  if (_userIndexContainer) return _userIndexContainer
+  getEnv()
+  const database = await getDatabase()
+  const { container } = await database.containers.createIfNotExists({
+    id: 'user-index',
+    partitionKey: { paths: ['/userId'] },
+  })
+  _userIndexContainer = container
+  return _userIndexContainer
+}
+
+/**
+ * budget-data — all budget documents (metadata, monthly data, settings, invites).
+ * Partition key: /budgetId  — keeps all docs for one budget co-located.
+ */
+async function getBudgetDataContainer() {
+  if (_budgetDataContainer) return _budgetDataContainer
+  getEnv()
+  const database = await getDatabase()
+  const { container } = await database.containers.createIfNotExists({
+    id: 'budget-data',
+    partitionKey: { paths: ['/budgetId'] },
+  })
+  _budgetDataContainer = container
+  return _budgetDataContainer
+}
+
+module.exports = {
+  getCosmosClient,
+  getBudgetContainer,
+  getUserIndexContainer,
+  getBudgetDataContainer,
+}

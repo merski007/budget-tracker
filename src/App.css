@@ -852,3 +852,472 @@
   font-style: italic;
 }
 
+/* ─── Phase 4: Header Layout ─────────────────────────────── */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* ─── Phase 4: Budget Switcher ───────────────────────────── */
+.budget-switcher {
+  position: relative;
+}
+
+.budget-switcher-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+.budget-switcher-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.switcher-caret {
+  font-size: 0.65rem;
+  opacity: 0.8;
+}
+
+.budget-switcher-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 200;
+  overflow: hidden;
+}
+
+.switcher-item {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+.switcher-item:hover {
+  background: var(--color-bg-alt);
+}
+.switcher-item.active {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.switcher-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 0.25rem 0;
+}
+
+.switcher-manage {
+  color: var(--color-primary) !important;
+  font-size: 0.85rem;
+}
+
+/* ─── Phase 4: Budget List Page ──────────────────────────── */
+.budget-list-page {
+  max-width: 680px;
+  margin: 3rem auto;
+  padding: 0 1rem;
+}
+
+.budget-list-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: var(--color-text);
+}
+
+.budget-list-error {
+  background: #fff3f3;
+  border: 1px solid #f5c6c6;
+  color: #c0392b;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.budget-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.budget-card {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+.budget-card:hover {
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+.budget-card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.1rem;
+  cursor: pointer;
+  gap: 0.75rem;
+}
+
+.budget-card-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--color-text);
+  flex: 1;
+}
+
+.budget-card-role {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 12px;
+  text-transform: capitalize;
+  font-weight: 600;
+}
+.budget-card-role.role-owner   { background: #e8f4fd; color: #1a73e8; }
+.budget-card-role.role-editor  { background: #e8f8ed; color: #1e8c46; }
+.budget-card-role.role-viewer  { background: #f5f5f5; color: #666; }
+
+.budget-card-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-muted);
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  transition: color 0.15s, background 0.15s;
+}
+.budget-card-delete:hover {
+  color: #c0392b;
+  background: #fff3f3;
+}
+
+/* "New Budget" card */
+.budget-card-new {
+  border: 2px dashed var(--color-border);
+  background: transparent;
+}
+
+.budget-card-add {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+.budget-card-add:hover {
+  opacity: 0.8;
+}
+
+.budget-card-add-icon {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.budget-card-new-form {
+  padding: 0.75rem 1.1rem 0.9rem;
+}
+
+.budget-name-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  margin-bottom: 0.6rem;
+  box-sizing: border-box;
+}
+.budget-name-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.budget-card-new-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  border: none;
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.btn-primary:hover   { opacity: 0.88; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-ghost {
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 0.45rem 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.btn-ghost:hover { background: var(--color-bg-alt); }
+
+/* ─── Phase 4: Invite Page ───────────────────────────────── */
+.invite-page {
+  max-width: 480px;
+  margin: 4rem auto;
+  padding: 0 1rem;
+}
+
+.invite-card {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
+}
+
+.invite-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 1.25rem;
+  color: var(--color-text);
+}
+
+.invite-detail {
+  margin-bottom: 0.6rem;
+  font-size: 0.95rem;
+  color: var(--color-text);
+}
+
+.invite-budget-name {
+  font-weight: 700;
+}
+
+.invite-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.invite-role-badge {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.invite-role-badge.role-owner  { background: #e8f4fd; color: #1a73e8; }
+.invite-role-badge.role-editor { background: #e8f8ed; color: #1e8c46; }
+.invite-role-badge.role-viewer { background: #f5f5f5; color: #666; }
+
+.invite-expiry {
+  font-size: 0.82rem;
+  color: var(--color-muted);
+  margin-top: 0.3rem;
+  margin-bottom: 1.25rem;
+}
+
+.invite-actions {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 1.5rem;
+}
+
+.invite-error {
+  background: #fff3f3;
+  border: 1px solid #f5c6c6;
+  color: #c0392b;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.invite-success {
+  background: #f0faf4;
+  border: 1px solid #b2dfcc;
+  color: #1e7846;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.invite-loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--color-muted);
+}
+
+/* ─── Phase 4: Members & Sharing (SettingsPage) ──────────── */
+.sharing-panel {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.2rem 1.4rem;
+  margin-top: 1.5rem;
+}
+
+.sharing-header {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--color-text);
+}
+
+.share-error {
+  background: #fff3f3;
+  border: 1px solid #f5c6c6;
+  color: #c0392b;
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  background: var(--color-bg-alt);
+}
+
+.member-email {
+  flex: 1;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.pending-invites {
+  margin-bottom: 1.25rem;
+}
+
+.pending-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+
+.pending-expiry {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.invite-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.invite-email-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.invite-email-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.invite-role-select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: #fff;
+}
+
+.invite-link-box {
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.9rem;
+  margin-top: 0.75rem;
+}
+
+.invite-link-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+
+.invite-link-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.invite-link-input {
+  flex: 1;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  background: #fff;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Budget rename row */
+.budget-rename-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.budget-name-display {
+  flex: 1;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+

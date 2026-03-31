@@ -1,68 +1,64 @@
 const { app } = require('@azure/functions')
-const { getBudgetContainer } = require('../cosmos')
+const { getCallerIdentity, assertBudgetAccess } = require('../auth')
+const { getBudgetDataContainer } = require('../cosmos')
 
-/**
- * Build the document id and extract the userId from SWA auth headers.
- * In local dev (no auth), userId defaults to 'anonymous'.
- */
-function getContext(request, year, month) {
-  const userId = request.headers.get('x-ms-client-principal-id') || 'anonymous'
-  const id     = `budget-${userId}-${year}-${String(month).padStart(2, '0')}`
-  return { userId, id }
-}
+function stripMeta({ _rid, _self, _etag, _attachments, _ts, ...rest }) { return rest }
 
-// GET /api/budget/{year}/{month}
-app.http('getBudget', {
+// GET /api/budgets/{budgetId}/months/{year}/{month}
+app.http('getBudgetMonth', {
   methods: ['GET'],
-  route: 'budget/{year}/{month}',
+  route: 'budgets/{budgetId}/months/{year}/{month}',
   authLevel: 'anonymous',
   handler: async (request, context) => {
     try {
+      const { userId }   = getCallerIdentity(request)
+      const { budgetId } = request.params
       const year  = parseInt(request.params.year,  10)
       const month = parseInt(request.params.month, 10)
-      const { userId, id } = getContext(request, year, month)
+      await assertBudgetAccess(userId, budgetId, 'viewer')
 
-      const { container } = await getBudgetContainer()
+      const id = `${budgetId}-${year}-${String(month).padStart(2, '0')}`
+      const container = await getBudgetDataContainer()
       try {
-        const { resource } = await container.item(id, userId).read()
+        const { resource } = await container.item(id, budgetId).read()
         return { jsonBody: resource }
       } catch (e) {
-        if (e.code === 404) {
-          return { status: 404, jsonBody: { error: 'Not found' } }
-        }
+        if (e.code === 404) return { status: 404, jsonBody: { error: 'Not found' } }
         throw e
       }
     } catch (err) {
-      context.error('getBudget error:', err.message)
-      return { status: 500, jsonBody: { error: 'Failed to fetch budget' } }
+      if (err.statusCode) return { status: err.statusCode, jsonBody: { error: err.message } }
+      context.error('getBudgetMonth error:', err.message)
+      return { status: 500, jsonBody: { error: 'Failed to fetch budget month' } }
     }
   },
 })
 
-// PUT /api/budget/{year}/{month}  — full upsert (replace entire document)
-app.http('putBudget', {
+// PUT /api/budgets/{budgetId}/months/{year}/{month}
+app.http('putBudgetMonth', {
   methods: ['PUT'],
-  route: 'budget/{year}/{month}',
+  route: 'budgets/{budgetId}/months/{year}/{month}',
   authLevel: 'anonymous',
   handler: async (request, context) => {
     try {
+      const { userId }   = getCallerIdentity(request)
+      const { budgetId } = request.params
       const year  = parseInt(request.params.year,  10)
       const month = parseInt(request.params.month, 10)
-      const { userId, id } = getContext(request, year, month)
+      await assertBudgetAccess(userId, budgetId, 'editor')
 
       const body = await request.json()
-
-      // Strip Cosmos system fields that may have been round-tripped from a previous read
       const { _rid, _self, _etag, _attachments, _ts, ...rest } = body
+      const id  = `${budgetId}-${year}-${String(month).padStart(2, '0')}`
+      const doc = { ...rest, id, budgetId, year, month }
 
-      const doc = { ...rest, id, userId, year, month }
-
-      const { container } = await getBudgetContainer()
-      const { resource }  = await container.items.upsert(doc)
-      return { jsonBody: resource }
+      const container = await getBudgetDataContainer()
+      const { resource } = await container.items.upsert(doc)
+      return { jsonBody: stripMeta(resource) }
     } catch (err) {
-      context.error('putBudget error:', err.message)
-      return { status: 500, jsonBody: { error: 'Failed to save budget' } }
+      if (err.statusCode) return { status: err.statusCode, jsonBody: { error: err.message } }
+      context.error('putBudgetMonth error:', err.message)
+      return { status: 500, jsonBody: { error: 'Failed to save budget month' } }
     }
   },
 })
