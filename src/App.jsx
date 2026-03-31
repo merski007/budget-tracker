@@ -1,82 +1,97 @@
 import { useState, useEffect } from 'react'
-import EntryForm from './components/EntryForm'
-import EntryList from './components/EntryList'
-import Summary from './components/Summary'
+import MonthNav from './components/MonthNav'
+import SummaryBar from './components/SummaryBar'
+import IncomePanel from './components/IncomePanel'
+import FixedExpensesPanel from './components/FixedExpensesPanel'
+import CreditCardsPanel from './components/CreditCardsPanel'
+import { loadMonthData, saveMonthData, getMonthIncome } from './utils/budgetUtils'
 import './App.css'
 
-const API_BASE = '/api'
-
 function App() {
-  const [entries, setEntries] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const today = new Date()
+  const [year, setYear]       = useState(today.getFullYear())
+  const [month, setMonth]     = useState(today.getMonth() + 1) // 1-indexed
+  const [monthData, setMonthData] = useState(() =>
+    loadMonthData(today.getFullYear(), today.getMonth() + 1)
+  )
 
+  // Load saved data when month/year changes
   useEffect(() => {
-    fetchEntries()
-  }, [])
+    setMonthData(loadMonthData(year, month))
+  }, [year, month])
 
-  async function fetchEntries() {
-    try {
-      setLoading(true)
-      const res = await fetch(`${API_BASE}/entries`)
-      if (!res.ok) throw new Error('Failed to load entries')
-      const data = await res.json()
-      setEntries(data)
-    } catch (err) {
-      console.warn('API unavailable, using localStorage fallback:', err.message)
-      const stored = JSON.parse(localStorage.getItem('budget-entries') || '[]')
-      setEntries(stored)
-    } finally {
-      setLoading(false)
-    }
+  // Persist data on every change
+  useEffect(() => {
+    saveMonthData(year, month, monthData)
+  }, [year, month, monthData])
+
+  function prevMonth() {
+    if (month === 1) { setYear(y => y - 1); setMonth(12) }
+    else setMonth(m => m - 1)
   }
 
-  async function addEntry(entry) {
-    const newEntry = { ...entry, id: crypto.randomUUID(), createdAt: new Date().toISOString() }
-    try {
-      const res = await fetch(`${API_BASE}/entries`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newEntry),
-      })
-      if (!res.ok) throw new Error('Failed to save entry')
-      const saved = await res.json()
-      setEntries(prev => [saved, ...prev])
-    } catch {
-      // Fallback: save to localStorage
-      const updated = [newEntry, ...entries]
-      localStorage.setItem('budget-entries', JSON.stringify(updated))
-      setEntries(updated)
-    }
+  function nextMonth() {
+    if (month === 12) { setYear(y => y + 1); setMonth(1) }
+    else setMonth(m => m + 1)
   }
 
-  async function deleteEntry(id) {
-    try {
-      await fetch(`${API_BASE}/entries/${id}`, { method: 'DELETE' })
-    } catch {
-      // Fallback: remove from localStorage
-    }
-    const updated = entries.filter(e => e.id !== id)
-    localStorage.setItem('budget-entries', JSON.stringify(updated))
-    setEntries(updated)
+  function updateCheckingBalance(val) {
+    setMonthData(d => ({ ...d, checkingBalance: val }))
   }
+
+  function updateFixedExpense(id, amount) {
+    setMonthData(d => ({
+      ...d,
+      fixedExpenses: d.fixedExpenses.map(e => e.id === id ? { ...e, amount } : e),
+    }))
+  }
+
+  function updateCreditCard(id, field, value) {
+    setMonthData(d => ({
+      ...d,
+      creditCards: d.creditCards.map(c => c.id === id ? { ...c, [field]: value } : c),
+    }))
+  }
+
+  // Derived totals
+  const income      = getMonthIncome(year, month)
+  const totalIn     = (parseFloat(monthData.checkingBalance) || 0) + income.paychecks + income.laura
+  const fixedTotal  = monthData.fixedExpenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
+  const ccTotal     = monthData.creditCards.reduce((sum, c) => {
+    const avail     = parseFloat(c.availableCredit) || 0
+    const remaining = parseFloat(c.remainingCredit) || 0
+    return sum + (avail > 0 ? avail - remaining : 0)
+  }, 0)
+  const totalOut    = fixedTotal + ccTotal
+  const remaining   = totalIn - totalOut
 
   return (
     <div className="app">
       <header className="app-header">
         <h1>Budget Tracker</h1>
       </header>
-      <main className="app-main">
-        <Summary entries={entries} />
-        <EntryForm onAdd={addEntry} />
-        {loading ? (
-          <p className="status">Loading entries...</p>
-        ) : error ? (
-          <p className="status error">{error}</p>
-        ) : (
-          <EntryList entries={entries} onDelete={deleteEntry} />
-        )}
-      </main>
+      <div className="app-body">
+        <MonthNav year={year} month={month} onPrev={prevMonth} onNext={nextMonth} />
+        <SummaryBar totalIn={totalIn} totalOut={totalOut} remaining={remaining} />
+        <div className="panels">
+          <IncomePanel
+            income={income}
+            checkingBalance={monthData.checkingBalance}
+            onCheckingBalanceChange={updateCheckingBalance}
+            totalIn={totalIn}
+          />
+          <FixedExpensesPanel
+            expenses={monthData.fixedExpenses}
+            onAmountChange={updateFixedExpense}
+            total={fixedTotal}
+          />
+        </div>
+        <CreditCardsPanel
+          cards={monthData.creditCards}
+          onCardChange={updateCreditCard}
+          total={ccTotal}
+        />
+      </div>
     </div>
   )
 }
