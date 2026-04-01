@@ -1,36 +1,38 @@
 import { formatCurrency } from '../utils/budgetUtils'
 
+/**
+ * Dashboard view of income sources.
+ * - Mirrors the layout / styling of FixedExpensesPanel.
+ * - Amounts are editable per-month; names come from the master template.
+ * - Each row has a received/pending checkbox.
+ * - Checking balance is shown as the first row (always "received").
+ */
 function IncomePanel({
   income,
-  thursdayDates,
   checkingBalance,
   onCheckingBalanceChange,
-  paychecksReceived,
-  onPaychecksReceivedChange,
-  lauraReceived,
-  onLauraReceivedChange,
+  onAmountChange,
+  onToggleReceived,
   totalIn,
 }) {
-  const totalSources  = income.thursdays + 1  // paychecks + Laura
-  const receivedCount = paychecksReceived + (lauraReceived ? 1 : 0)
+  const receivedCount = income.filter(i => i.received).length
+  const totalCount    = income.length
 
   return (
     <section className="panel income-panel">
       <div className="panel-title-row">
         <h2 className="panel-title">Income</h2>
         {receivedCount > 0 && (
-          <span className="progress-badge">
-            {receivedCount} / {totalSources} received
-          </span>
+          <span className="progress-badge">{receivedCount} / {totalCount} received</span>
         )}
       </div>
 
-      <div className="panel-rows">
-        {/* Checking Balance */}
-        <div className="panel-row">
-          <label className="row-label" htmlFor="checking-balance">Checking Balance</label>
+      <div className="panel-rows scrollable">
+        {/* Checking Balance — always "in the bank", no toggle */}
+        <div className="panel-row expense-row expense-paid">
+          <span className="expense-checkbox-placeholder" />
+          <label className="row-label expense-name">Checking Balance</label>
           <input
-            id="checking-balance"
             type="number"
             className="amount-input"
             value={checkingBalance}
@@ -41,59 +43,39 @@ function IncomePanel({
           />
         </div>
 
-        {/* Individual paycheck rows — one per Thursday */}
-        {thursdayDates.map((date, i) => {
-          const isReceived = i < paychecksReceived
-          const dateLabel  = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-
+        {/* Configured income sources */}
+        {income.map(item => {
+          const isReceived = item.received
           return (
             <div
-              key={i}
-              className={`panel-row paycheck-row${isReceived ? ' paycheck-received' : ''}`}
+              className={`panel-row expense-row${isReceived ? ' expense-paid' : ''}`}
+              key={item.id}
             >
-              <label className="row-label paycheck-label">
-                <input
-                  type="checkbox"
-                  className="paycheck-checkbox"
-                  checked={isReceived}
-                  onChange={() => {
-                    // Clicking a checked box with index i → set count to i (uncheck from i up)
-                    // Clicking an unchecked box with index i → set count to i+1 (check up to i)
-                    onPaychecksReceivedChange(isReceived ? i : i + 1)
-                  }}
-                />
-                <span>
-                  Paycheck
-                  <span className="row-sub">Thu {dateLabel}</span>
-                </span>
-              </label>
-              <span className={`row-value${isReceived ? '' : ' value-pending'}`}>
-                {formatCurrency(1300)}
-              </span>
+              <input
+                type="checkbox"
+                className="expense-checkbox"
+                checked={isReceived}
+                onChange={() => onToggleReceived(item.id)}
+                title={isReceived ? 'Mark as pending' : 'Mark as received'}
+              />
+              <label className="row-label expense-name">{item.name}</label>
+              <input
+                type="number"
+                className="amount-input"
+                value={item.amount}
+                onChange={e => onAmountChange(item.id, e.target.value)}
+                min="0"
+                step="0.01"
+              />
             </div>
           )
         })}
 
-        {/* Laura */}
-        <div className={`panel-row paycheck-row${lauraReceived ? ' paycheck-received' : ''}`}>
-          <label className="row-label paycheck-label">
-            <input
-              type="checkbox"
-              className="paycheck-checkbox"
-              checked={lauraReceived}
-              onChange={onLauraReceivedChange}
-            />
-            <span>
-              Laura
-              {income.thursdays >= 5 && (
-                <span className="row-sub badge">5-Thu month</span>
-              )}
-            </span>
-          </label>
-          <span className={`row-value${lauraReceived ? '' : ' value-pending'}`}>
-            {formatCurrency(income.laura)}
-          </span>
-        </div>
+        {income.length === 0 && (
+          <div className="panel-row panel-empty-hint">
+            <span>Add income sources in ⚙ Settings</span>
+          </div>
+        )}
       </div>
 
       <div className="panel-total">
@@ -105,4 +87,3 @@ function IncomePanel({
 }
 
 export default IncomePanel
-

@@ -3,96 +3,34 @@ export const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 
-export const DEFAULT_FIXED_EXPENSES = [
-  { id: 'we-energy',      name: 'We Energy',           amount: 185  },
-  { id: 'edvest',         name: 'EdVest',               amount: 75   },
-  { id: 'great-midwest',  name: 'Great Midwest Bank',   amount: 1527 },
-  { id: 'elite',          name: 'Elite',                amount: 236  },
-  { id: 'insurance',      name: 'Insurance',            amount: 350  },
-  { id: 'uncle-payment',  name: 'Uncle Payment',        amount: 1000 },
-  { id: 'savings',        name: 'Savings',              amount: 2000 },
-  { id: 'water',          name: 'Water',                amount: 70   },
-  { id: 'netflix',        name: 'Netflix',              amount: 27   },
-  { id: 'internet',       name: 'Internet',             amount: 85   },
-  { id: 'burn',           name: 'Burn',                 amount: 30   },
-  { id: 'cellphone',      name: 'Cellphone',            amount: 55   },
-  { id: 'gas',            name: 'Gas',                  amount: 200  },
-  { id: 'dr-beaus',       name: 'Dr Beaus',             amount: 112  },
-  { id: 'truck-payment',  name: 'Truck Payment',        amount: 690  },
-  { id: 'rv',             name: 'RV',                   amount: 200  },
-  { id: 'mister-carwash', name: 'Mister Carwash',       amount: 35   },
-]
+// ─── Empty defaults — new budgets start blank ─────────────────────────────────
+// Users configure templates from the Settings tab.
+export const DEFAULT_FIXED_EXPENSES   = []
+export const DEFAULT_MASTER_INCOME    = []
+export const DEFAULT_MASTER_CREDIT_CARDS = []
 
-export const DEFAULT_CREDIT_CARDS = [
-  { id: 'costco', name: 'Costco Card', availableCredit: '', remainingCredit: '' },
-  { id: 'chase',  name: 'Chase',       availableCredit: '', remainingCredit: '' },
-]
+// Legacy alias (kept for any code that still imports DEFAULT_CREDIT_CARDS)
+export const DEFAULT_CREDIT_CARDS = DEFAULT_MASTER_CREDIT_CARDS
 
-/**
- * Returns an array of Date objects for every Thursday in the given month.
- * @param {number} year
- * @param {number} month - 1-indexed
- * @returns {Date[]}
- */
-export function getThursdaysInMonth(year, month) {
-  const thursdays = []
-  const daysInMonth = new Date(year, month, 0).getDate()
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(year, month - 1, d)
-    if (date.getDay() === 4) thursdays.push(date)
-  }
-  return thursdays
-}
-
-/**
- * Compute the effective (still-incoming) income for the totalIn formula.
- *
- * Because the checking balance already includes received paychecks, we must
- * NOT add them again.  Only future / unreceived paychecks & Laura are additive.
- *
- * @param {ReturnType<typeof getMonthIncome>} income
- * @param {number}  paychecksReceived  - how many $1,300 paychecks are already in the bank
- * @param {boolean} lauraReceived      - whether Laura's paycheck is already in the bank
- */
-export function getEffectiveIncome(income, paychecksReceived, lauraReceived) {
-  const unreceivedCount    = Math.max(0, income.thursdays - paychecksReceived)
-  const effectivePaychecks = unreceivedCount * 1300
-  const effectiveLaura     = lauraReceived ? 0 : income.laura
-  return {
-    effectivePaychecks,
-    effectiveLaura,
-    total: effectivePaychecks + effectiveLaura,
-  }
-}
-
-/**
- * Count how many Thursdays are in a given month.
- * @param {number} year
- * @param {number} month - 1-indexed
- */
-export function countThursdays(year, month) {
-  let count = 0
-  const daysInMonth = new Date(year, month, 0).getDate()
-  for (let d = 1; d <= daysInMonth; d++) {
-    if (new Date(year, month - 1, d).getDay() === 4) count++
-  }
-  return count
-}
-
-/**
- * Calculate income for a month based on Thursday count.
- * 4 Thursdays → 4 paychecks × $1,300 + Laura $2,000
- * 5 Thursdays → 5 paychecks × $1,300 + Laura $2,500
- */
-export function getMonthIncome(year, month) {
-  const thursdays = countThursdays(year, month)
-  const paychecks = thursdays * 1300
-  const laura = thursdays >= 5 ? 2500 : 2000
-  return { thursdays, paychecks, laura, total: paychecks + laura }
-}
-
+// ─── Month storage key ────────────────────────────────────────────────────────
 export function getStorageKey(budgetId, year, month) {
   return `budget-${budgetId}-${year}-${String(month).padStart(2, '0')}`
+}
+
+// ─── Month data — load / save ─────────────────────────────────────────────────
+
+/**
+ * Build a blank month document from the three master templates.
+ * All "received" / "paid" flags are reset; credit card balances are cleared.
+ */
+export function blankMonth({ masterExpenses = [], masterIncome = [], masterCreditCards = [] } = {}) {
+  return {
+    checkingBalance: '',
+    fixedExpenses:   masterExpenses.map(e => ({ id: e.id, name: e.name, amount: e.amount })),
+    income:          masterIncome.map(i => ({ id: i.id, name: i.name, amount: i.amount, received: false })),
+    creditCards:     masterCreditCards.map(c => ({ id: c.id, name: c.name, availableCredit: '', remainingCredit: '' })),
+    paidExpenseIds:  [],
+  }
 }
 
 export function loadMonthData(budgetId, year, month) {
@@ -100,42 +38,46 @@ export function loadMonthData(budgetId, year, month) {
   const stored = localStorage.getItem(key)
   if (stored) {
     const parsed = JSON.parse(stored)
-    // Backfill new fields for documents saved before Phase 3
+    // Backfill any fields missing from older stored docs
     return {
-      paidExpenseIds:    [],
-      paychecksReceived: 0,
-      lauraReceived:     false,
+      paidExpenseIds: [],
+      income:         [],
+      creditCards:    [],
       ...parsed,
     }
   }
-  return {
-    checkingBalance:   '',
-    fixedExpenses:     DEFAULT_FIXED_EXPENSES.map(e => ({ ...e })),
-    creditCards:       DEFAULT_CREDIT_CARDS.map(c => ({ ...c })),
-    paidExpenseIds:    [],
-    paychecksReceived: 0,
-    lauraReceived:     false,
-  }
+  // No cached data — caller should use blankMonth() with the master templates
+  return null
 }
 
 export function saveMonthData(budgetId, year, month, data) {
   localStorage.setItem(getStorageKey(budgetId, year, month), JSON.stringify(data))
 }
 
-// ─── Master Fixed Expenses (global template) ──────────────────────────────────
+// ─── Master templates — load / save ──────────────────────────────────────────
 
-/**
- * Load the master fixed-expense template from localStorage for a specific budget.
- * Falls back to DEFAULT_FIXED_EXPENSES when nothing is stored yet.
- */
 export function loadMasterExpenses(budgetId) {
   const stored = localStorage.getItem(`budget-${budgetId}-master-expenses`)
-  if (stored) return JSON.parse(stored)
-  return DEFAULT_FIXED_EXPENSES.map(e => ({ ...e }))
+  return stored ? JSON.parse(stored) : [...DEFAULT_FIXED_EXPENSES]
 }
-
 export function saveMasterExpenses(budgetId, expenses) {
   localStorage.setItem(`budget-${budgetId}-master-expenses`, JSON.stringify(expenses))
+}
+
+export function loadMasterIncome(budgetId) {
+  const stored = localStorage.getItem(`budget-${budgetId}-master-income`)
+  return stored ? JSON.parse(stored) : [...DEFAULT_MASTER_INCOME]
+}
+export function saveMasterIncome(budgetId, income) {
+  localStorage.setItem(`budget-${budgetId}-master-income`, JSON.stringify(income))
+}
+
+export function loadMasterCreditCards(budgetId) {
+  const stored = localStorage.getItem(`budget-${budgetId}-master-credit-cards`)
+  return stored ? JSON.parse(stored) : [...DEFAULT_MASTER_CREDIT_CARDS]
+}
+export function saveMasterCreditCards(budgetId, cards) {
+  localStorage.setItem(`budget-${budgetId}-master-credit-cards`, JSON.stringify(cards))
 }
 
 // ─── Savings ─────────────────────────────────────────────────────────────────
@@ -172,8 +114,8 @@ export function buildSavingsHistory(budgetId, year, month, numMonths, startingBa
 
   let running = startingBalance
   return months.map(({ year: y, month: m }) => {
-    const data = loadMonthData(budgetId, y, m)
-    const savingsLine = data.fixedExpenses.find(e => e.id === 'savings')
+    const data = loadMonthData(budgetId, y, m) ?? {}
+    const savingsLine = (data.fixedExpenses ?? []).find(e => e.id === 'savings')
     const contribution = savingsLine ? parseFloat(savingsLine.amount) || 0 : 0
     running += contribution
     return {

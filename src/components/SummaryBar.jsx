@@ -6,14 +6,11 @@ function SummaryBar({
   remaining,
   fixedTotal,
   paidFixedTotal,
-  income,
-  paychecksReceived,
-  lauraReceived,
+  incomeReceivedCount,
+  incomeTotalCount,
   isCurrentMonth,
 }) {
-  const receivedCount  = paychecksReceived + (lauraReceived ? 1 : 0)
-  const totalSources   = income?.thursdays + 1 ?? 0
-  const hasTracking    = isCurrentMonth && receivedCount > 0
+  const hasTracking = isCurrentMonth && incomeReceivedCount > 0
 
   return (
     <div className="summary-bar">
@@ -22,7 +19,7 @@ function SummaryBar({
         <span className="summary-value">{formatCurrency(totalIn)}</span>
         {hasTracking && (
           <span className="summary-detail">
-            {receivedCount} of {totalSources} sources received
+            {incomeReceivedCount} of {incomeTotalCount} sources received
           </span>
         )}
       </div>
@@ -51,4 +48,3 @@ function SummaryBar({
 }
 
 export default SummaryBar
-

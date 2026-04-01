@@ -4,7 +4,12 @@ function CreditCardsPanel({ cards, onCardChange, total }) {
   return (
     <section className="panel cc-panel">
       <h2 className="panel-title">Credit Cards</h2>
-      <div className="cc-grid">
+      {cards.length === 0 ? (
+        <div className="panel-row panel-empty-hint">
+          <span>Add credit cards in ⚙ Settings</span>
+        </div>
+      ) : (
+        <div className="cc-grid">
         <div className="cc-header">
           <span></span>
           <span>Available Credit</span>
@@ -42,11 +47,14 @@ function CreditCardsPanel({ cards, onCardChange, total }) {
             </div>
           )
         })}
-      </div>
-      <div className="panel-total">
-        <span>Total CC Owed</span>
-        <span>{formatCurrency(total)}</span>
-      </div>
+        </div>
+      )}
+      {cards.length > 0 && (
+        <div className="panel-total">
+          <span>Total CC Owed</span>
+          <span>{formatCurrency(total)}</span>
+        </div>
+      )}
     </section>
   )
 }

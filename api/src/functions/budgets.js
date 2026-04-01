@@ -8,7 +8,7 @@ const {
   removeBudgetFromUserIndex,
 } = require('../auth')
 const { getBudgetDataContainer, getBudgetContainer } = require('../cosmos')
-const { DEFAULT_FIXED_EXPENSES } = require('../defaults')
+const { DEFAULT_FIXED_EXPENSES, DEFAULT_MASTER_INCOME, DEFAULT_MASTER_CREDIT_CARDS } = require('../defaults')
 
 // ── Helper: strip Cosmos system fields ────────────────────────────────────────
 function stripMeta({ _rid, _self, _etag, _attachments, _ts, ...rest }) { return rest }
@@ -66,11 +66,13 @@ app.http('createBudget', {
       }
       await container.items.create(meta)
 
-      // Create default settings doc
+      // Create default settings doc (all templates start blank)
       const settings = {
         id: `settings-${budgetId}`,
         budgetId,
-        masterExpenses: DEFAULT_FIXED_EXPENSES.map(e => ({ ...e })),
+        masterExpenses:    DEFAULT_FIXED_EXPENSES.map(e => ({ ...e })),
+        masterIncome:      DEFAULT_MASTER_INCOME.map(i => ({ ...i })),
+        masterCreditCards: DEFAULT_MASTER_CREDIT_CARDS.map(c => ({ ...c })),
       }
       await container.items.create(settings)
 

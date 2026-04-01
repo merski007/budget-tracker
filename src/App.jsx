@@ -14,36 +14,23 @@ import { fetchBudgetMonth, saveBudgetMonth } from './api/budgetApi'
 import { fetchSettings, saveSettings } from './api/settingsApi'
 import { fetchBudgets } from './api/budgetsApi'
 import {
-  DEFAULT_FIXED_EXPENSES,
-  DEFAULT_CREDIT_CARDS,
+  blankMonth,
   loadMonthData,
   saveMonthData,
   loadMasterExpenses,
   saveMasterExpenses,
+  loadMasterIncome,
+  saveMasterIncome,
+  loadMasterCreditCards,
+  saveMasterCreditCards,
   loadSavingsBalance,
   saveSavingsBalance,
-  getMonthIncome,
-  getEffectiveIncome,
-  getThursdaysInMonth,
   getDateStats,
   getDerivedCalcs,
   buildSavingsHistory,
 } from './utils/budgetUtils'
 import './App.css'
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function blankMonth(sourceExpenses) {
-  return {
-    checkingBalance:   '',
-    fixedExpenses:     (sourceExpenses ?? DEFAULT_FIXED_EXPENSES).map(
-      e => ({ id: e.id, name: e.name, amount: e.amount }),
-    ),
-    creditCards:       DEFAULT_CREDIT_CARDS.map(c => ({ ...c })),
-    paidExpenseIds:    [],
-    paychecksReceived: 0,
-    lauraReceived:     false,
-  }
-}
 
 function getInviteCode() {
   const params = new URLSearchParams(window.location.search)
@@ -75,6 +62,8 @@ function App() {
   const [monthData,       setMonthData]       = useState(null)
   const [isMonthLoading,  setIsMonthLoading]  = useState(false)
   const [masterExpenses,  setMasterExpenses]  = useState([])
+  const [masterIncome,    setMasterIncome]    = useState([])
+  const [masterCreditCards, setMasterCreditCards] = useState([])
   const [savingsBalance,  setSavingsBalance]  = useState(0)
 
   const saveTimerRef         = useRef(null)
@@ -117,19 +106,29 @@ function App() {
     setAllBudgets(budgetList ?? allBudgets)
     setShowSwitcher(false)
 
-    // Load per-budget settings from localStorage cache then API
-    const cachedExpenses = loadMasterExpenses(budget.budgetId)
-    setMasterExpenses(cachedExpenses)
+    // Load per-budget templates from localStorage cache
+    setMasterExpenses(loadMasterExpenses(budget.budgetId))
+    setMasterIncome(loadMasterIncome(budget.budgetId))
+    setMasterCreditCards(loadMasterCreditCards(budget.budgetId))
 
     const cachedSavings = loadSavingsBalance(budget.budgetId)
     setSavingsBalance(cachedSavings)
 
-    // Async refresh from API
+    // Async refresh all three templates from API
     fetchSettings(budget.budgetId)
       .then(data => {
-        if (data?.masterExpenses?.length) {
+        if (!data) return
+        if (data.masterExpenses !== undefined) {
           setMasterExpenses(data.masterExpenses)
           saveMasterExpenses(budget.budgetId, data.masterExpenses)
+        }
+        if (data.masterIncome !== undefined) {
+          setMasterIncome(data.masterIncome)
+          saveMasterIncome(budget.budgetId, data.masterIncome)
+        }
+        if (data.masterCreditCards !== undefined) {
+          setMasterCreditCards(data.masterCreditCards)
+          saveMasterCreditCards(budget.budgetId, data.masterCreditCards)
         }
       })
       .catch(() => {})
@@ -149,13 +148,17 @@ function App() {
       try {
         let data = await fetchBudgetMonth(budgetId, year, month)
         if (!data) {
-          data = blankMonth(masterExpenses)
+          // No server doc yet — try local cache, else build blank from templates
+          data = loadMonthData(budgetId, year, month)
+               ?? blankMonth({ masterExpenses, masterIncome, masterCreditCards })
         } else {
-          data = { paidExpenseIds: [], paychecksReceived: 0, lauraReceived: false, ...data }
+          // Backfill any fields missing from older docs
+          data = { paidExpenseIds: [], income: [], creditCards: [], ...data }
         }
         if (!cancelled) setMonthData(data)
       } catch {
-        if (!cancelled) setMonthData(loadMonthData(budgetId, year, month))
+        const cached = loadMonthData(budgetId, year, month)
+        if (!cancelled) setMonthData(cached ?? blankMonth({ masterExpenses, masterIncome, masterCreditCards }))
       } finally {
         if (!cancelled) setIsMonthLoading(false)
       }
@@ -176,16 +179,18 @@ function App() {
     }, 600)
   }, [year, month, monthData, activeBudget])
 
-  // â”€â”€ 5. Persist master expenses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── 5. Persist all master templates ────────────────────────────────────────
   useEffect(() => {
-    if (!activeBudget || !masterExpenses.length) return
+    if (!activeBudget) return
     const { budgetId } = activeBudget
     saveMasterExpenses(budgetId, masterExpenses)
+    saveMasterIncome(budgetId, masterIncome)
+    saveMasterCreditCards(budgetId, masterCreditCards)
     clearTimeout(settingsSaveTimerRef.current)
     settingsSaveTimerRef.current = setTimeout(() => {
-      saveSettings(budgetId, { masterExpenses }).catch(console.error)
+      saveSettings(budgetId, { masterExpenses, masterIncome, masterCreditCards }).catch(console.error)
     }, 600)
-  }, [masterExpenses, activeBudget])
+  }, [masterExpenses, masterIncome, masterCreditCards, activeBudget])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // â”€â”€ Savings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function updateSavingsBalance(val) {
@@ -205,15 +210,7 @@ function App() {
 
   // â”€â”€ Reset â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function handleReset() {
-    setMonthData(d => ({
-      ...d,
-      checkingBalance:   '',
-      fixedExpenses:     masterExpenses.map(e => ({ id: e.id, name: e.name, amount: e.amount })),
-      paidExpenseIds:    [],
-      paychecksReceived: 0,
-      lauraReceived:     false,
-      creditCards:       d.creditCards.map(c => ({ ...c, remainingCredit: c.availableCredit })),
-    }))
+    setMonthData(blankMonth({ masterExpenses, masterIncome, masterCreditCards }))
   }
 
   // â”€â”€ Data handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -227,24 +224,30 @@ function App() {
       return { ...d, paidExpenseIds: isPaid ? d.paidExpenseIds.filter(p => p !== id) : [...d.paidExpenseIds, id] }
     })
   }
-  function setPaychecksReceived(count)     { setMonthData(d => ({ ...d, paychecksReceived: count })) }
-  function toggleLauraReceived()           { setMonthData(d => ({ ...d, lauraReceived: !d.lauraReceived })) }
+  function updateIncomeItem(id, amount) {
+    setMonthData(d => ({ ...d, income: (d.income ?? []).map(i => i.id === id ? { ...i, amount } : i) }))
+  }
+  function toggleIncomeReceived(id) {
+    setMonthData(d => ({
+      ...d,
+      income: (d.income ?? []).map(i => i.id === id ? { ...i, received: !i.received } : i),
+    }))
+  }
   function updateCreditCard(id, field, value) {
     setMonthData(d => ({ ...d, creditCards: d.creditCards.map(c => c.id === id ? { ...c, [field]: value } : c) }))
   }
 
-  // â”€â”€ Derived calculations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const income        = activeBudget ? getMonthIncome(year, month) : null
-  const thursdayDates = activeBudget ? getThursdaysInMonth(year, month) : []
+  // ── Derived calculations ────────────────────────────────────────────────────
+  const checkingBal = parseFloat(monthData?.checkingBalance) || 0
 
-  const effectiveIncome = (income && monthData)
-    ? getEffectiveIncome(income, monthData.paychecksReceived, monthData.lauraReceived)
-    : null
+  // totalIn = checking balance + all *received* income sources
+  const receivedIncomeTotal = (monthData?.income ?? [])
+    .filter(i => i.received)
+    .reduce((s, i) => s + (parseFloat(i.amount) || 0), 0)
+  const totalIn = checkingBal + receivedIncomeTotal
 
-  const checkingBal     = parseFloat(monthData?.checkingBalance) || 0
-  const totalIn         = effectiveIncome
-    ? checkingBal + effectiveIncome.effectivePaychecks + effectiveIncome.effectiveLaura
-    : 0
+  const incomeReceivedCount = (monthData?.income ?? []).filter(i => i.received).length
+  const incomeTotalCount    = (monthData?.income ?? []).length
 
   const fixedTotal = (monthData?.fixedExpenses ?? []).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0)
   const unpaidFixedTotal = (monthData?.fixedExpenses ?? [])
@@ -388,7 +391,11 @@ function App() {
           <SettingsPage
             budget={activeBudget}
             masterExpenses={masterExpenses}
-            onChange={setMasterExpenses}
+            masterIncome={masterIncome}
+            masterCreditCards={masterCreditCards}
+            onExpensesChange={setMasterExpenses}
+            onIncomeChange={setMasterIncome}
+            onCreditCardsChange={setMasterCreditCards}
             onBudgetRenamed={name => {
               setActiveBudget(b => ({ ...b, name }))
               setAllBudgets(list => list.map(b => b.budgetId === activeBudget.budgetId ? { ...b, name } : b))
@@ -405,22 +412,18 @@ function App() {
             remaining={remaining}
             fixedTotal={fixedTotal}
             paidFixedTotal={paidFixedTotal}
-            income={income}
-            paychecksReceived={monthData.paychecksReceived}
-            lauraReceived={monthData.lauraReceived}
+            incomeReceivedCount={incomeReceivedCount}
+            incomeTotalCount={incomeTotalCount}
             isCurrentMonth={dateStats.isCurrentMonth}
           />
 
           <div className="panels">
             <IncomePanel
-              income={income}
-              thursdayDates={thursdayDates}
+              income={monthData.income ?? []}
               checkingBalance={monthData.checkingBalance}
               onCheckingBalanceChange={updateCheckingBalance}
-              paychecksReceived={monthData.paychecksReceived}
-              onPaychecksReceivedChange={setPaychecksReceived}
-              lauraReceived={monthData.lauraReceived}
-              onLauraReceivedChange={toggleLauraReceived}
+              onAmountChange={updateIncomeItem}
+              onToggleReceived={toggleIncomeReceived}
               totalIn={totalIn}
             />
             <FixedExpensesPanel
