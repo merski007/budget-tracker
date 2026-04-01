@@ -224,6 +224,20 @@ function App() {
       return { ...d, paidExpenseIds: isPaid ? d.paidExpenseIds.filter(p => p !== id) : [...d.paidExpenseIds, id] }
     })
   }
+  function deleteExpenseItem(id) {
+    setMonthData(d => ({
+      ...d,
+      fixedExpenses: d.fixedExpenses.filter(e => e.id !== id),
+      paidExpenseIds: d.paidExpenseIds.filter(p => p !== id),
+    }))
+  }
+  function resetExpensesPanel() {
+    setMonthData(d => ({
+      ...d,
+      fixedExpenses: masterExpenses.map(e => ({ id: e.id, name: e.name, amount: e.amount })),
+      paidExpenseIds: [],
+    }))
+  }
   function updateIncomeItem(id, amount) {
     setMonthData(d => ({ ...d, income: (d.income ?? []).map(i => i.id === id ? { ...i, amount } : i) }))
   }
@@ -231,6 +245,15 @@ function App() {
     setMonthData(d => ({
       ...d,
       income: (d.income ?? []).map(i => i.id === id ? { ...i, received: !i.received } : i),
+    }))
+  }
+  function deleteIncomeItem(id) {
+    setMonthData(d => ({ ...d, income: (d.income ?? []).filter(i => i.id !== id) }))
+  }
+  function resetIncomePanel() {
+    setMonthData(d => ({
+      ...d,
+      income: masterIncome.map(i => ({ id: i.id, name: i.name, amount: i.amount, received: false })),
     }))
   }
   function updateCreditCard(id, field, value) {
@@ -424,6 +447,8 @@ function App() {
               onCheckingBalanceChange={updateCheckingBalance}
               onAmountChange={updateIncomeItem}
               onToggleReceived={toggleIncomeReceived}
+              onDeleteItem={deleteIncomeItem}
+              onReset={resetIncomePanel}
               totalIn={totalIn}
             />
             <FixedExpensesPanel
@@ -431,6 +456,8 @@ function App() {
               paidExpenseIds={monthData.paidExpenseIds}
               onAmountChange={updateFixedExpense}
               onTogglePaid={togglePaidExpense}
+              onDeleteExpense={deleteExpenseItem}
+              onReset={resetExpensesPanel}
               total={fixedTotal}
               unpaidTotal={unpaidFixedTotal}
             />
