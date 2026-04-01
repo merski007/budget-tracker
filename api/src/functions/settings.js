@@ -17,13 +17,9 @@ app.http('getBudgetSettings', {
 
       const id        = `settings-${budgetId}`
       const container = await getBudgetDataContainer()
-      try {
-        const { resource } = await container.item(id, budgetId).read()
-        return { jsonBody: resource }
-      } catch (e) {
-        if (e.code === 404) return { status: 404, jsonBody: { error: 'Not found' } }
-        throw e
-      }
+      const { resource } = await container.item(id, budgetId).read()
+      if (!resource) return { status: 404, jsonBody: null }
+      return { jsonBody: stripMeta(resource) }
     } catch (err) {
       if (err.statusCode) return { status: err.statusCode, jsonBody: { error: err.message } }
       context.error('getBudgetSettings error:', err.message)

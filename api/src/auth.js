@@ -17,21 +17,19 @@ function getCallerIdentity(request) {
 async function getUserIndex(userId, email) {
   const container = await getUserIndexContainer()
   const id = `user-${userId}`
-  try {
-    const { resource } = await container.item(id, userId).read()
-    // Ensure email is current (may have changed)
-    if (resource.email !== email) {
-      resource.email = email
-      await container.items.upsert(resource)
-    }
-    return resource
-  } catch (e) {
-    if (e.code !== 404) throw e
+  const { resource } = await container.item(id, userId).read()
+  if (!resource) {
     // First login — create a blank user-index doc
     const doc = { id, userId, email, budgets: [] }
-    const { resource } = await container.items.create(doc)
-    return resource
+    const { resource: created } = await container.items.create(doc)
+    return created
   }
+  // Ensure email is current (may have changed)
+  if (resource.email !== email) {
+    resource.email = email
+    await container.items.upsert(resource)
+  }
+  return resource
 }
 
 /**
@@ -44,17 +42,11 @@ const ROLE_RANK = { viewer: 1, editor: 2, owner: 3 }
 async function assertBudgetAccess(userId, budgetId, requiredRole = 'viewer') {
   const container = await getBudgetDataContainer()
   const metaId = `meta-${budgetId}`
-  let meta
-  try {
-    const { resource } = await container.item(metaId, budgetId).read()
-    meta = resource
-  } catch (e) {
-    if (e.code === 404) {
-      const err = new Error('Budget not found')
-      err.statusCode = 404
-      throw err
-    }
-    throw e
+  const { resource: meta } = await container.item(metaId, budgetId).read()
+  if (!meta) {
+    const err = new Error('Budget not found')
+    err.statusCode = 404
+    throw err
   }
 
   const member = meta.members.find(m => m.userId === userId)
@@ -72,14 +64,8 @@ async function assertBudgetAccess(userId, budgetId, requiredRole = 'viewer') {
 async function addBudgetToUserIndex(userId, email, budgetId, budgetName, role) {
   const container = await getUserIndexContainer()
   const id = `user-${userId}`
-  let doc
-  try {
-    const { resource } = await container.item(id, userId).read()
-    doc = resource
-  } catch (e) {
-    if (e.code !== 404) throw e
-    doc = { id, userId, email, budgets: [] }
-  }
+  const { resource } = await container.item(id, userId).read()
+  let doc = resource || { id, userId, email, budgets: [] }
   const existing = doc.budgets.findIndex(b => b.budgetId === budgetId)
   if (existing >= 0) {
     doc.budgets[existing] = { budgetId, name: budgetName, role }
@@ -95,14 +81,10 @@ async function addBudgetToUserIndex(userId, email, budgetId, budgetName, role) {
 async function removeBudgetFromUserIndex(userId, budgetId) {
   const container = await getUserIndexContainer()
   const id = `user-${userId}`
-  try {
-    const { resource } = await container.item(id, userId).read()
-    resource.budgets = resource.budgets.filter(b => b.budgetId !== budgetId)
-    await container.items.upsert(resource)
-  } catch (e) {
-    if (e.code !== 404) return   // already gone
-    throw e
-  }
+  const { resource } = await container.item(id, userId).read()
+  if (!resource) return   // already gone
+  resource.budgets = resource.budgets.filter(b => b.budgetId !== budgetId)
+  await container.items.upsert(resource)
 }
 
 module.exports = {
