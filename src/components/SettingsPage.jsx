@@ -59,7 +59,23 @@ function SettingsPage({
   const [inviteRole,     setInviteRole]     = useState('viewer')
   const [inviteBusy,     setInviteBusy]     = useState(false)
   const [inviteLink,     setInviteLink]     = useState(null)
+  const [inviteRecipient, setInviteRecipient] = useState('')
   const [shareError,     setShareError]     = useState(null)
+
+  function buildMailtoLink(link, recipientEmail) {
+    const subject = encodeURIComponent(`Join my budget: ${budgetName}`)
+    const body = encodeURIComponent(
+      [
+        `Hi,`,
+        ``,
+        `I'm inviting you to collaborate on my budget in Budget Tracker.`,
+        `Use this link to join: ${link}`,
+        ``,
+        `This invite expires in 7 days.`,
+      ].join('\n')
+    )
+    return `mailto:${encodeURIComponent(recipientEmail)}?subject=${subject}&body=${body}`
+  }
 
   useEffect(() => {
     fetchBudgetMembers(budget.budgetId)
@@ -75,8 +91,10 @@ function SettingsPage({
     if (!inviteEmail.trim()) return
     setInviteBusy(true); setShareError(null); setInviteLink(null)
     try {
-      const { code } = await createInvite(budget.budgetId, inviteEmail.trim(), inviteRole)
+      const recipientEmail = inviteEmail.trim()
+      const { code } = await createInvite(budget.budgetId, recipientEmail, inviteRole)
       setInviteLink(`${window.location.origin}/?invite=${code}`)
+      setInviteRecipient(recipientEmail)
       setInviteEmail('')
       fetchBudgetMembers(budget.budgetId)
         .then(data => setPendingInvites(data.pendingInvites ?? []))
@@ -221,17 +239,18 @@ function SettingsPage({
               <option value="editor">Editor</option>
             </select>
             <button className="btn-primary" onClick={handleInvite} disabled={inviteBusy || !inviteEmail.trim()}>
-              {inviteBusy ? 'Sending…' : 'Invite'}
+              {inviteBusy ? 'Creating Invite…' : 'Create Invite Link'}
             </button>
           </div>
         )}
 
         {inviteLink && (
           <div className="invite-link-box">
-            <p className="invite-link-label">Share this link (expires in 7 days):</p>
+            <p className="invite-link-label">Invite link created. Share it manually or open your email app:</p>
             <div className="invite-link-row">
               <input readOnly className="invite-link-input" value={inviteLink} onClick={e => e.target.select()} />
               <button className="btn-ghost" onClick={() => navigator.clipboard.writeText(inviteLink).catch(() => {})}>Copy</button>
+              <a className="btn-ghost" href={buildMailtoLink(inviteLink, inviteRecipient)}>Email Invite</a>
             </div>
           </div>
         )}
