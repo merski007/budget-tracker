@@ -86,9 +86,10 @@ function App() {
   const settingsPayloadRef      = useRef(null)
   const settingsLoadedRef       = useRef(false) // true once initial settings fetch resolves
   const settingsSkipNextSaveRef = useRef(false) // skip the autosave that immediately follows a load
+  const settingsConflictRef     = useRef(false) // true while a settings conflict is unresolved
 
   const [monthConflict,  setMonthConflict]  = useState(null)  // remote doc when month edits collide
-  const [settingsNotice, setSettingsNotice] = useState(false) // settings were reloaded after a collision
+  const [settingsConflict, setSettingsConflict] = useState(null) // remote doc when settings edits collide
 
   // Keep the mirror ref in sync every render.
   monthDataRef.current = monthData
@@ -136,7 +137,8 @@ function App() {
     settingsSavePendingRef.current = false
     settingsLoadedRef.current = false
     settingsSkipNextSaveRef.current = false
-    setSettingsNotice(false)
+    settingsConflictRef.current = false
+    setSettingsConflict(null)
 
     // Load per-budget templates from localStorage cache
     setMasterExpenses(loadMasterExpenses(budget.budgetId))
@@ -326,6 +328,7 @@ function App() {
     saveMasterCreditCards(budgetId, masterCreditCards)
     settingsPayloadRef.current = { masterExpenses, masterIncome, masterCreditCards, savingsBalance }
     if (!settingsLoadedRef.current) return             // don't sync before the initial load
+    if (settingsConflictRef.current) return            // hold autosave until conflict resolved
     if (settingsSkipNextSaveRef.current) {             // first run after a load: cache only
       settingsSkipNextSaveRef.current = false
       return
@@ -351,20 +354,22 @@ function App() {
     try {
       const result = await saveSettings(budgetId, payload, settingsEtagRef.current)
       if (result.conflict) {
-        // Someone else changed the shared settings. Reload the server's version and
-        // tell the user, rather than silently overwriting their change.
-        if (result.current && activeBudget && activeBudget.budgetId === budgetId) {
-          const c = result.current
-          settingsEtagRef.current = c._etag ?? null
-          if (c.masterExpenses    !== undefined) { setMasterExpenses(c.masterExpenses);       saveMasterExpenses(budgetId, c.masterExpenses) }
-          if (c.masterIncome      !== undefined) { setMasterIncome(c.masterIncome);           saveMasterIncome(budgetId, c.masterIncome) }
-          if (c.masterCreditCards !== undefined) { setMasterCreditCards(c.masterCreditCards); saveMasterCreditCards(budgetId, c.masterCreditCards) }
-          if (c.savingsBalance    !== undefined && c.savingsBalance !== null) {
-            setSavingsBalance(c.savingsBalance); saveSavingsBalance(budgetId, c.savingsBalance)
-          }
-          setSettingsNotice(true)
+        // Someone else changed the shared settings. Surface a conflict and let the
+        // user choose (reload theirs vs. overwrite with mine), rather than silently
+        // discarding their in-flight edit.
+        if (!activeBudget || activeBudget.budgetId !== budgetId) {
+          settingsSavePendingRef.current = false
+          return
         }
-        settingsSavePendingRef.current = false
+        if (result.current) {
+          settingsConflictRef.current = true
+          setSettingsConflict(result.current)
+          settingsSavePendingRef.current = false
+        } else {
+          // The settings doc was deleted server-side: drop the stale etag and recreate.
+          settingsEtagRef.current = null
+          settingsSavePendingRef.current = true
+        }
         return
       }
         if (activeBudget && activeBudget.budgetId === budgetId) {
@@ -374,7 +379,7 @@ function App() {
       console.error(err)
     } finally {
       settingsSaveInFlightRef.current = false
-      if (settingsSavePendingRef.current && activeBudget && activeBudget.budgetId === budgetId) {
+      if (settingsSavePendingRef.current && !settingsConflictRef.current && activeBudget && activeBudget.budgetId === budgetId) {
         settingsSavePendingRef.current = false
         runSettingsSave(budgetId)
       }
@@ -382,6 +387,32 @@ function App() {
   }
 
   // â”€â”€ Savings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Settings conflict resolution ────────────────────────────────────────────
+  function reloadSettingsFromServer() {
+    if (!settingsConflict || !activeBudget) { setSettingsConflict(null); settingsConflictRef.current = false; return }
+    const c = settingsConflict
+    const { budgetId } = activeBudget
+    settingsEtagRef.current = c._etag ?? null
+    if (c.masterExpenses    !== undefined) { setMasterExpenses(c.masterExpenses);       saveMasterExpenses(budgetId, c.masterExpenses) }
+    if (c.masterIncome      !== undefined) { setMasterIncome(c.masterIncome);           saveMasterIncome(budgetId, c.masterIncome) }
+    if (c.masterCreditCards !== undefined) { setMasterCreditCards(c.masterCreditCards); saveMasterCreditCards(budgetId, c.masterCreditCards) }
+    if (c.savingsBalance    !== undefined && c.savingsBalance !== null) {
+      setSavingsBalance(c.savingsBalance); saveSavingsBalance(budgetId, c.savingsBalance)
+    }
+    settingsConflictRef.current = false
+    setSettingsConflict(null)
+    settingsSkipNextSaveRef.current = true   // adopting the server copy isn't an edit
+  }
+
+  function overwriteSettingsOnServer() {
+    if (!activeBudget) return
+    // Adopt the server's current version so our local settings win the next write.
+    settingsEtagRef.current  = settingsConflict?._etag ?? null
+    settingsConflictRef.current = false
+    setSettingsConflict(null)
+    runSettingsSave(activeBudget.budgetId)
+  }
+
   function updateSavingsBalance(val) {
     setSavingsBalance(val)
     if (activeBudget) saveSavingsBalance(activeBudget.budgetId, val)
@@ -599,10 +630,16 @@ function App() {
         )}
       </header>
 
-      {settingsNotice && (
-        <div className="conflict-toast" role="status">
-          <span>Settings were updated by someone else and reloaded. Re-apply your change if needed.</span>
-          <button className="conflict-toast-dismiss" onClick={() => setSettingsNotice(false)}>Dismiss</button>
+      {settingsConflict && (
+        <div className="conflict-banner" role="alert">
+          <div className="conflict-banner-text">
+            <strong>Settings were changed by someone else.</strong>
+            <span>Your unsaved settings edits weren't saved. Reload their version, or overwrite it with yours.</span>
+          </div>
+          <div className="conflict-banner-actions">
+            <button className="conflict-btn reload" onClick={reloadSettingsFromServer}>Reload theirs</button>
+            <button className="conflict-btn overwrite" onClick={overwriteSettingsOnServer}>Overwrite with mine</button>
+          </div>
         </div>
       )}
 

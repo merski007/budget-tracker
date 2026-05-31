@@ -61,8 +61,7 @@ budget-tracker/
 │       │   ├── budgets.js        # Budgets CRUD + members
 │       │   ├── budget.js         # Per-month GET/PUT
 │       │   ├── settings.js       # Per-budget settings (templates + savings)
-│       │   ├── invites.js        # Create / accept / revoke invites
-│       │   └── entries.js        # Legacy single-user entries (deprecated)
+│       │   └── invites.js        # Create / accept / revoke invites
 │       ├── auth.js               # Identity + role checks, user-index helpers
 │       ├── concurrency.js        # Optimistic (etag) write helper
 │       ├── cosmos.js             # Cosmos DB client + container helpers
@@ -81,7 +80,10 @@ the savings balance.
 |---------------|---------------|----------|
 | `budget-data` | `/budgetId`   | All documents for a budget, co-located: metadata (`meta-{budgetId}`), monthly data (`{budgetId}-{year}-{MM}`), settings (`settings-{budgetId}`) and invites. |
 | `user-index`  | `/userId`     | One doc per user (`user-{userId}`) listing the budgets they belong to and their role. |
-| `entries`     | `/id`         | **Legacy** single-user entries — kept only for backwards compatibility. |
+
+> A legacy `budget-months` container (partitioned by `/userId`) may still exist from
+> older single-user deployments; it is read once to migrate data into `budget-data`
+> on first access and is otherwise unused.
 
 A monthly document looks roughly like:
 

@@ -94,7 +94,7 @@ app.http('patchBudget', {
   authLevel: 'anonymous',
   handler: async (request, context) => {
     try {
-      const { userId, email } = getCallerIdentity(request)
+      const { userId } = getCallerIdentity(request)
       const { budgetId } = request.params
       await assertBudgetAccess(userId, budgetId, 'owner')
 
@@ -278,7 +278,8 @@ async function migrateLegacyData(userId, email) {
         const parts = oldId.split('-')
         const year  = parts[parts.length - 2]
         const month = parts[parts.length - 1]
-        newId = `${budgetId}-${year}-${month}`
+        // Match the live GET/PUT id format, which zero-pads the month.
+        newId = `${budgetId}-${year}-${String(parseInt(month, 10)).padStart(2, '0')}`
       }
 
       await container.items.upsert({ ...rest, id: newId, budgetId })

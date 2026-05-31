@@ -1,8 +1,7 @@
 const { CosmosClient } = require('@azure/cosmos')
 
 let _client             = null
-let _container          = null   // legacy "entries"
-let _budgetContainer    = null   // legacy "budget-months"
+let _budgetContainer    = null   // legacy "budget-months" (migration source only)
 let _userIndexContainer = null   // new "user-index"
 let _budgetDataContainer = null  // new "budget-data"
 
@@ -23,19 +22,7 @@ async function getDatabase() {
   return database
 }
 
-// ── Legacy containers (kept for migration) ────────────────────────────────────
-
-async function getCosmosClient() {
-  if (_container) return { client: _client, container: _container }
-  getEnv()
-  const database = await getDatabase()
-  const { container } = await database.containers.createIfNotExists({
-    id: process.env.COSMOS_CONTAINER || 'entries',
-    partitionKey: { paths: ['/id'] },
-  })
-  _container = container
-  return { client: _client, container: _container }
-}
+// ── Legacy container (kept for migration source only) ─────────────────────────
 
 async function getBudgetContainer() {
   if (_budgetContainer) return { client: _client, container: _budgetContainer }
@@ -84,7 +71,6 @@ async function getBudgetDataContainer() {
 }
 
 module.exports = {
-  getCosmosClient,
   getBudgetContainer,
   getUserIndexContainer,
   getBudgetDataContainer,
