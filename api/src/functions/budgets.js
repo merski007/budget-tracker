@@ -135,6 +135,16 @@ app.http('deleteBudget', {
 
       const container = await getBudgetDataContainer()
 
+      // Capture the member list BEFORE deleting the metadata doc, so we can clean
+      // up every member's user-index (not just the requester's).
+      let members = []
+      try {
+        const { resource: meta } = await container.item(`meta-${budgetId}`, budgetId).read()
+        members = meta?.members ?? []
+      } catch {
+        members = []
+      }
+
       // Fetch all documents in this budget's partition
       const { resources } = await container.items
         .query({
@@ -147,11 +157,12 @@ app.http('deleteBudget', {
         await container.item(doc.id, budgetId).delete()
       }
 
-      // Remove from all members' user-index entries
-      const metaId = `meta-${budgetId}`
-      // (meta was deleted above, but we still have members info from assertBudgetAccess read — re-read first)
-      // Since we deleted it already, just clean up user-index for the requesting user
-      await removeBudgetFromUserIndex(userId, budgetId)
+      // Remove the budget from every member's user-index. Fall back to at least the
+      // requesting user if the member list could not be read.
+      const memberIds = members.length ? members.map(m => m.userId) : [userId]
+      for (const memberId of memberIds) {
+        await removeBudgetFromUserIndex(memberId, budgetId)
+      }
 
       return { status: 204 }
     } catch (err) {

@@ -84,7 +84,7 @@ export function saveMasterCreditCards(budgetId, cards) {
 
 export function loadSavingsBalance(budgetId) {
   const v = localStorage.getItem(`budget-${budgetId}-savings-balance`)
-  return v !== null ? parseFloat(v) : 1140
+  return v !== null ? parseFloat(v) : 0
 }
 
 export function saveSavingsBalance(budgetId, amount) {
@@ -130,6 +130,39 @@ export function buildSavingsHistory(budgetId, year, month, numMonths, startingBa
 
 export function formatCurrency(amount) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+}
+
+/**
+ * Build a day-by-day burn-down of the money remaining for the current month.
+ *
+ * Starting from `remaining` today, the series spends exactly the daily allowance
+ * each day, reaching $0 at the end of the month. It is a pure function of the
+ * remaining figure and the date stats, so it can be unit-tested in isolation.
+ *
+ * Returns [] for any month that is not the current month (where "days remaining"
+ * is not meaningful).
+ *
+ * @param {number} remaining - net money remaining for the month
+ * @param {ReturnType<typeof getDateStats>} dateStats
+ * @returns {Array<{ day: number, remaining: number, isToday: boolean, isMonthEnd: boolean }>}
+ */
+export function buildBurnDownSeries(remaining, dateStats) {
+  const { isCurrentMonth, daysInMonth, daysRemainingInMonth } = dateStats
+  if (!isCurrentMonth || daysRemainingInMonth <= 0) return []
+
+  const todayDate      = daysInMonth - daysRemainingInMonth + 1   // 1-indexed day of month
+  const dailyAllowance = remaining / daysRemainingInMonth
+
+  const points = []
+  for (let i = 0; i <= daysRemainingInMonth; i++) {
+    points.push({
+      day:        todayDate + i,                           // last point = daysInMonth + 1 (month end)
+      remaining:  Math.max(0, remaining - dailyAllowance * i),
+      isToday:    i === 0,
+      isMonthEnd: i === daysRemainingInMonth,
+    })
+  }
+  return points
 }
 
 /**

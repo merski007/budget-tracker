@@ -7,6 +7,7 @@ import FixedExpensesPanel from './components/FixedExpensesPanel'
 import CreditCardsPanel from './components/CreditCardsPanel'
 import DerivedCalcsPanel from './components/DerivedCalcsPanel'
 import SavingsPanel from './components/SavingsPanel'
+import BurnDownChart from './components/BurnDownChart'
 import SettingsPage from './components/SettingsPage'
 import BudgetListPage from './components/BudgetListPage'
 import InvitePage from './components/InvitePage'
@@ -27,6 +28,7 @@ import {
   saveSavingsBalance,
   getDateStats,
   getDerivedCalcs,
+  buildBurnDownSeries,
   buildSavingsHistory,
 } from './utils/budgetUtils'
 import './App.css'
@@ -69,6 +71,28 @@ function App() {
   const saveTimerRef         = useRef(null)
   const settingsSaveTimerRef = useRef(null)
 
+  // ── Optimistic-concurrency bookkeeping (kept in refs so updating them never
+  //    re-triggers the autosave effects) ───────────────────────────────────────
+  const monthDataRef          = useRef(null)   // mirror of monthData for async saves
+  const monthEtagRef          = useRef(null)   // last-synced month _etag
+  const monthKeyRef           = useRef(null)   // budgetId-year-month the loaded data belongs to
+  const monthConflictRef      = useRef(false)  // true while a month conflict is unresolved
+  const monthSaveInFlightRef  = useRef(false)
+  const monthSavePendingRef   = useRef(false)
+  const monthSkipNextSaveRef  = useRef(false)  // skip the autosave that immediately follows a load
+  const settingsEtagRef       = useRef(null)   // last-synced settings _etag
+  const settingsSaveInFlightRef = useRef(false)
+  const settingsSavePendingRef  = useRef(false)
+  const settingsPayloadRef      = useRef(null)
+  const settingsLoadedRef       = useRef(false) // true once initial settings fetch resolves
+  const settingsSkipNextSaveRef = useRef(false) // skip the autosave that immediately follows a load
+
+  const [monthConflict,  setMonthConflict]  = useState(null)  // remote doc when month edits collide
+  const [settingsNotice, setSettingsNotice] = useState(false) // settings were reloaded after a collision
+
+  // Keep the mirror ref in sync every render.
+  monthDataRef.current = monthData
+
   // â”€â”€ 1. On auth complete: check for invite or load budget list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     if (authLoading) return
@@ -106,6 +130,14 @@ function App() {
     setAllBudgets(budgetList ?? allBudgets)
     setShowSwitcher(false)
 
+    // Reset concurrency bookkeeping for the newly-selected budget.
+    settingsEtagRef.current = null
+    settingsSaveInFlightRef.current = false
+    settingsSavePendingRef.current = false
+    settingsLoadedRef.current = false
+    settingsSkipNextSaveRef.current = false
+    setSettingsNotice(false)
+
     // Load per-budget templates from localStorage cache
     setMasterExpenses(loadMasterExpenses(budget.budgetId))
     setMasterIncome(loadMasterIncome(budget.budgetId))
@@ -118,6 +150,7 @@ function App() {
     fetchSettings(budget.budgetId)
       .then(data => {
         if (!data) return
+        settingsEtagRef.current = data._etag ?? null
         if (data.masterExpenses !== undefined) {
           setMasterExpenses(data.masterExpenses)
           saveMasterExpenses(budget.budgetId, data.masterExpenses)
@@ -130,35 +163,71 @@ function App() {
           setMasterCreditCards(data.masterCreditCards)
           saveMasterCreditCards(budget.budgetId, data.masterCreditCards)
         }
+        // Savings balance is shared via the settings doc. If the server already has
+        // a value, it is the source of truth. If it does not, allow the next settings
+        // save to fire so any locally-stored value is migrated up to the server.
+        if (data.savingsBalance !== undefined && data.savingsBalance !== null) {
+          setSavingsBalance(data.savingsBalance)
+          saveSavingsBalance(budget.budgetId, data.savingsBalance)
+          // Applying loaded data shouldn't echo a redundant save back to the server.
+          settingsSkipNextSaveRef.current = true
+        } else {
+          // One-time migration of the local savings balance — let the save proceed.
+          settingsSkipNextSaveRef.current = false
+        }
       })
       .catch(() => {})
+      .finally(() => { settingsLoadedRef.current = true })
 
     setPage('dashboard')
   }
 
-  // â”€â”€ 3. Load month data when year/month/budget changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── 3. Load month data when year/month/budget changes ───────────────────────
   useEffect(() => {
     if (!activeBudget || page !== 'dashboard') return
     let cancelled = false
+    const { budgetId } = activeBudget
+    const key = `${budgetId}-${year}-${month}`
+
+    // Reset month state + concurrency bookkeeping for the month being loaded.
     setMonthData(null)
     setIsMonthLoading(true)
+    monthKeyRef.current      = null
+    monthEtagRef.current     = null
+    monthConflictRef.current = false
+    monthSaveInFlightRef.current = false
+    monthSavePendingRef.current  = false
+    clearTimeout(saveTimerRef.current)
+    setMonthConflict(null)
 
     async function load() {
-      const { budgetId } = activeBudget
       try {
+        let etag = null
         let data = await fetchBudgetMonth(budgetId, year, month)
         if (!data) {
           // No server doc yet — try local cache, else build blank from templates
           data = loadMonthData(budgetId, year, month)
                ?? blankMonth({ masterExpenses, masterIncome, masterCreditCards })
         } else {
-          // Backfill any fields missing from older docs
-          data = { paidExpenseIds: [], income: [], creditCards: [], ...data }
+          // Capture the server version, then backfill fields missing from older docs.
+          etag = data._etag ?? null
+          const { _etag, ...rest } = data
+          data = { paidExpenseIds: [], income: [], creditCards: [], ...rest }
         }
-        if (!cancelled) setMonthData(data)
+        if (!cancelled) {
+          monthEtagRef.current = etag
+          monthKeyRef.current  = key
+          monthSkipNextSaveRef.current = true   // loading isn't an edit — don't echo-save
+          setMonthData(data)
+        }
       } catch {
         const cached = loadMonthData(budgetId, year, month)
-        if (!cancelled) setMonthData(cached ?? blankMonth({ masterExpenses, masterIncome, masterCreditCards }))
+        if (!cancelled) {
+          monthEtagRef.current = null
+          monthKeyRef.current  = key
+          monthSkipNextSaveRef.current = true
+          setMonthData(cached ?? blankMonth({ masterExpenses, masterIncome, masterCreditCards }))
+        }
       } finally {
         if (!cancelled) setIsMonthLoading(false)
       }
@@ -168,16 +237,85 @@ function App() {
     return () => { cancelled = true }
   }, [year, month, activeBudget, page])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  // â”€â”€ 4. Persist month data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Serialized month save with optimistic concurrency ───────────────────────
+  async function runMonthSave(budgetId, year, month) {
+    const key = `${budgetId}-${year}-${month}`
+    if (monthConflictRef.current) return
+    if (monthKeyRef.current !== key) return            // data no longer belongs to this month
+    if (monthSaveInFlightRef.current) {                // serialize: never overlap saves
+      monthSavePendingRef.current = true
+      return
+    }
+    const snapshot = monthDataRef.current
+    if (!snapshot) return
+
+    monthSaveInFlightRef.current = true
+    try {
+      const result = await saveBudgetMonth(budgetId, year, month, snapshot, monthEtagRef.current)
+      if (result.conflict) {
+        if (monthKeyRef.current !== key) return        // user moved on; ignore stale result
+        if (result.current) {
+          monthConflictRef.current = true
+          setMonthConflict(result.current)
+          monthSavePendingRef.current = false
+        } else {
+          // The month doc was deleted server-side: drop the stale etag and recreate it.
+          monthEtagRef.current = null
+          monthSavePendingRef.current = true
+        }
+        return
+      }
+      if (monthKeyRef.current !== key) return           // user moved on; don't clobber new etag
+      monthEtagRef.current = result.doc._etag ?? null
+    } catch (err) {
+      console.error(err)
+    } finally {
+      monthSaveInFlightRef.current = false
+      if (monthSavePendingRef.current && !monthConflictRef.current && monthKeyRef.current === key) {
+        monthSavePendingRef.current = false
+        runMonthSave(budgetId, year, month)
+      }
+    }
+  }
+
+  // ── 4. Persist month data (localStorage immediately, server debounced) ───────
   useEffect(() => {
     if (!monthData || !activeBudget) return
     const { budgetId } = activeBudget
+    if (monthKeyRef.current !== `${budgetId}-${year}-${month}`) return  // not this month's data
     saveMonthData(budgetId, year, month, monthData)
+    if (monthSkipNextSaveRef.current) {                // first render after a load: cache only
+      monthSkipNextSaveRef.current = false
+      return
+    }
+    if (monthConflictRef.current) return               // hold autosave until conflict resolved
     clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      saveBudgetMonth(budgetId, year, month, monthData).catch(console.error)
+      runMonthSave(budgetId, year, month)
     }, 600)
-  }, [year, month, monthData, activeBudget])
+    return () => clearTimeout(saveTimerRef.current)
+  }, [year, month, monthData, activeBudget])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Month conflict resolution ───────────────────────────────────────────────
+  function reloadMonthFromServer() {
+    if (!monthConflict || !activeBudget) { setMonthConflict(null); monthConflictRef.current = false; return }
+    const { _etag, ...rest } = monthConflict
+    monthEtagRef.current     = _etag ?? null
+    monthKeyRef.current      = `${activeBudget.budgetId}-${year}-${month}`
+    monthConflictRef.current = false
+    setMonthConflict(null)
+    monthSkipNextSaveRef.current = true   // adopting the server copy isn't an edit
+    setMonthData({ paidExpenseIds: [], income: [], creditCards: [], ...rest })
+  }
+
+  function overwriteMonthOnServer() {
+    if (!activeBudget) return
+    // Adopt the server's current version so our local data wins the next write.
+    monthEtagRef.current     = monthConflict?._etag ?? null
+    monthConflictRef.current = false
+    setMonthConflict(null)
+    runMonthSave(activeBudget.budgetId, year, month)
+  }
 
   // ── 5. Persist all master templates ────────────────────────────────────────
   useEffect(() => {
@@ -186,11 +324,62 @@ function App() {
     saveMasterExpenses(budgetId, masterExpenses)
     saveMasterIncome(budgetId, masterIncome)
     saveMasterCreditCards(budgetId, masterCreditCards)
+    settingsPayloadRef.current = { masterExpenses, masterIncome, masterCreditCards, savingsBalance }
+    if (!settingsLoadedRef.current) return             // don't sync before the initial load
+    if (settingsSkipNextSaveRef.current) {             // first run after a load: cache only
+      settingsSkipNextSaveRef.current = false
+      return
+    }
     clearTimeout(settingsSaveTimerRef.current)
     settingsSaveTimerRef.current = setTimeout(() => {
-      saveSettings(budgetId, { masterExpenses, masterIncome, masterCreditCards }).catch(console.error)
+      runSettingsSave(budgetId)
     }, 600)
-  }, [masterExpenses, masterIncome, masterCreditCards, activeBudget])  // eslint-disable-line react-hooks/exhaustive-deps
+    return () => clearTimeout(settingsSaveTimerRef.current)
+  }, [masterExpenses, masterIncome, masterCreditCards, savingsBalance, activeBudget])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Serialized settings save with optimistic concurrency ────────────────────
+  async function runSettingsSave(budgetId) {
+    if (!activeBudget || activeBudget.budgetId !== budgetId) return
+    if (settingsSaveInFlightRef.current) {             // serialize: never overlap saves
+      settingsSavePendingRef.current = true
+      return
+    }
+    const payload = settingsPayloadRef.current
+    if (!payload) return
+
+    settingsSaveInFlightRef.current = true
+    try {
+      const result = await saveSettings(budgetId, payload, settingsEtagRef.current)
+      if (result.conflict) {
+        // Someone else changed the shared settings. Reload the server's version and
+        // tell the user, rather than silently overwriting their change.
+        if (result.current && activeBudget && activeBudget.budgetId === budgetId) {
+          const c = result.current
+          settingsEtagRef.current = c._etag ?? null
+          if (c.masterExpenses    !== undefined) { setMasterExpenses(c.masterExpenses);       saveMasterExpenses(budgetId, c.masterExpenses) }
+          if (c.masterIncome      !== undefined) { setMasterIncome(c.masterIncome);           saveMasterIncome(budgetId, c.masterIncome) }
+          if (c.masterCreditCards !== undefined) { setMasterCreditCards(c.masterCreditCards); saveMasterCreditCards(budgetId, c.masterCreditCards) }
+          if (c.savingsBalance    !== undefined && c.savingsBalance !== null) {
+            setSavingsBalance(c.savingsBalance); saveSavingsBalance(budgetId, c.savingsBalance)
+          }
+          setSettingsNotice(true)
+        }
+        settingsSavePendingRef.current = false
+        return
+      }
+        if (activeBudget && activeBudget.budgetId === budgetId) {
+          settingsEtagRef.current = result.doc._etag ?? null
+        }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      settingsSaveInFlightRef.current = false
+      if (settingsSavePendingRef.current && activeBudget && activeBudget.budgetId === budgetId) {
+        settingsSavePendingRef.current = false
+        runSettingsSave(budgetId)
+      }
+    }
+  }
 
   // â”€â”€ Savings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function updateSavingsBalance(val) {
@@ -288,6 +477,7 @@ function App() {
   const remaining  = totalIn - totalOut
   const dateStats  = activeBudget ? getDateStats(year, month) : { isCurrentMonth: false, daysInMonth: 30, daysRemainingInMonth: 30, daysRemainingInWeek: 7 }
   const derivedCalcs = getDerivedCalcs(remaining, dateStats)
+  const burnDownSeries = buildBurnDownSeries(remaining, dateStats)
 
   const thisMonthContribution = parseFloat(monthData?.fixedExpenses?.find(e => e.id === 'savings')?.amount) || 0
   const savingsHistory = activeBudget
@@ -409,6 +599,13 @@ function App() {
         )}
       </header>
 
+      {settingsNotice && (
+        <div className="conflict-toast" role="status">
+          <span>Settings were updated by someone else and reloaded. Re-apply your change if needed.</span>
+          <button className="conflict-toast-dismiss" onClick={() => setSettingsNotice(false)}>Dismiss</button>
+        </div>
+      )}
+
       {page === 'settings' ? (
         <div className="app-body">
           <SettingsPage
@@ -428,6 +625,19 @@ function App() {
       ) : isDashboardReady ? (
         <div className="app-body">
           <MonthNav year={year} month={month} onPrev={prevMonth} onNext={nextMonth} onReset={handleReset} />
+
+          {monthConflict && (
+            <div className="conflict-banner" role="alert">
+              <div className="conflict-banner-text">
+                <strong>This month was changed by someone else.</strong>
+                <span>Your unsaved edits weren't saved. Reload their version, or overwrite it with yours.</span>
+              </div>
+              <div className="conflict-banner-actions">
+                <button className="conflict-btn reload" onClick={reloadMonthFromServer}>Reload theirs</button>
+                <button className="conflict-btn overwrite" onClick={overwriteMonthOnServer}>Overwrite with mine</button>
+              </div>
+            </div>
+          )}
 
           <SummaryBar
             totalIn={totalIn}
@@ -465,6 +675,7 @@ function App() {
 
           <CreditCardsPanel cards={monthData.creditCards} onCardChange={updateCreditCard} total={ccTotal} />
           <DerivedCalcsPanel calcs={derivedCalcs} isCurrentMonth={dateStats.isCurrentMonth} />
+          <BurnDownChart series={burnDownSeries} />
           <SavingsPanel
             savingsBalance={savingsBalance}
             onBalanceChange={updateSavingsBalance}

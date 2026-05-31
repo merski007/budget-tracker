@@ -16,19 +16,23 @@ export async function fetchBudgetMonth(budgetId, year, month) {
 }
 
 /**
- * Upsert a month's budget document.
- * @param {string} budgetId
- * @param {number} year
- * @param {number} month - 1-indexed
- * @param {object} data
- * @returns {Promise<object>}
+ * Upsert a month's budget document with optimistic concurrency.
+ * Pass the `_etag` from the last fetched/saved doc; on a version conflict the
+ * server returns the current document instead of overwriting it.
+ *
+ * @returns {Promise<{conflict: false, doc: object} | {conflict: true, current: object|null}>}
  */
-export async function saveBudgetMonth(budgetId, year, month, data) {
+export async function saveBudgetMonth(budgetId, year, month, data, etag) {
+  const body = etag ? { ...data, _etag: etag } : data
   const res = await fetch(`${BASE}/budgets/${budgetId}/months/${year}/${month}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify(body),
   })
+  if (res.status === 409) {
+    const j = await res.json().catch(() => ({}))
+    return { conflict: true, current: j.current ?? null }
+  }
   if (!res.ok) throw new Error(`Failed to save budget: ${res.status}`)
-  return res.json()
+  return { conflict: false, doc: await res.json() }
 }
